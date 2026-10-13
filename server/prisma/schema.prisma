@@ -8,10 +8,14 @@ datasource db {
 }
 
 model ambiente {
-  id_ambiente   Int             @id
-  desc_ambiente String          @unique @db.VarChar(50)
-  base_de_datos base_de_datos[]
-  servidor      servidor[]
+  id_ambiente        Int             @id
+  desc_ambiente      String          @unique @db.VarChar(50)
+  fecha_creacion     DateTime        @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?         @db.VarChar(45)
+  fecha_modificacion DateTime?       @db.Timestamptz(6)
+  ip_modificacion    String?         @db.VarChar(45)
+  base_de_datos      base_de_datos[]
+  servidor           servidor[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -33,6 +37,10 @@ model aplicacion {
   unidad_jerarquica    String?
   gestor_resp          String?
   criticidad           String?                @db.VarChar(20)
+  fecha_creacion       DateTime               @default(now()) @db.Timestamptz(6)
+  ip_creacion          String?                @db.VarChar(45)
+  fecha_modificacion   DateTime?              @db.Timestamptz(6)
+  ip_modificacion      String?                @db.VarChar(45)
   motor_bd             motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
   aplicacion_basedatos aplicacion_basedatos[]
   aplicacion_proceso   aplicacion_proceso[]
@@ -40,20 +48,28 @@ model aplicacion {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model aplicacion_basedatos {
-  id_aplicacion Int
-  id_bd         Int
-  aplicacion    aplicacion    @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  base_de_datos base_de_datos @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  id_aplicacion      Int
+  id_bd              Int
+  fecha_creacion     DateTime      @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?       @db.VarChar(45)
+  fecha_modificacion DateTime?     @db.Timestamptz(6)
+  ip_modificacion    String?       @db.VarChar(45)
+  aplicacion         aplicacion    @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  base_de_datos      base_de_datos @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([id_aplicacion, id_bd])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model aplicacion_proceso {
-  id_aplicacion   Int
-  id_proceso      Int
-  aplicacion      aplicacion      @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  proceso_negocio proceso_negocio @relation(fields: [id_proceso], references: [id_proceso], onDelete: NoAction, onUpdate: NoAction)
+  id_aplicacion      Int
+  id_proceso         Int
+  fecha_creacion     DateTime        @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?         @db.VarChar(45)
+  fecha_modificacion DateTime?       @db.Timestamptz(6)
+  ip_modificacion    String?         @db.VarChar(45)
+  aplicacion         aplicacion      @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  proceso_negocio    proceso_negocio @relation(fields: [id_proceso], references: [id_proceso], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([id_aplicacion, id_proceso])
 }
@@ -80,6 +96,10 @@ model base_de_datos {
   estado_bd                                                String?
   gestor                                                   String?
   resp_funcional                                           String?
+  fecha_creacion                                           DateTime               @default(now()) @db.Timestamptz(6)
+  ip_creacion                                              String?                @db.VarChar(45)
+  fecha_modificacion                                       DateTime?              @db.Timestamptz(6)
+  ip_modificacion                                          String?                @db.VarChar(45)
   aplicacion_basedatos                                     aplicacion_basedatos[]
   ambiente                                                 ambiente?              @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)
   motor_bd                                                 motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
@@ -89,11 +109,15 @@ model base_de_datos {
 }
 
 model dominio_funcional {
-  id_dominio      Int               @id
-  id_tipo_proceso Int
-  desc_dominio    String            @db.VarChar(120)
-  tipo_proceso    tipo_proceso      @relation(fields: [id_tipo_proceso], references: [id_tipo_proceso], onDelete: NoAction, onUpdate: NoAction)
-  proceso_negocio proceso_negocio[]
+  id_dominio         Int               @id
+  id_tipo_proceso    Int
+  desc_dominio       String            @db.VarChar(120)
+  fecha_creacion     DateTime          @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?           @db.VarChar(45)
+  fecha_modificacion DateTime?         @db.Timestamptz(6)
+  ip_modificacion    String?           @db.VarChar(45)
+  tipo_proceso       tipo_proceso      @relation(fields: [id_tipo_proceso], references: [id_tipo_proceso], onDelete: NoAction, onUpdate: NoAction)
+  proceso_negocio    proceso_negocio[]
 
   @@unique([id_tipo_proceso, desc_dominio])
 }
@@ -108,22 +132,34 @@ model integraciones {
   nombre_enlace                                            String?        @db.VarChar(200)
   esquema_owner                                            String?        @db.VarChar(120)
   estado_enlace                                            String?        @db.VarChar(40)
+  fecha_creacion                                           DateTime       @default(now()) @db.Timestamptz(6)
+  ip_creacion                                              String?        @db.VarChar(45)
+  fecha_modificacion                                       DateTime?      @db.Timestamptz(6)
+  ip_modificacion                                          String?        @db.VarChar(45)
   base_de_datos_integraciones_id_bd_destinoTobase_de_datos base_de_datos? @relation("integraciones_id_bd_destinoTobase_de_datos", fields: [id_bd_destino], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
   base_de_datos_integraciones_id_bd_origenTobase_de_datos  base_de_datos  @relation("integraciones_id_bd_origenTobase_de_datos", fields: [id_bd_origen], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model motor_bd {
-  id_motor_bd   Int             @id
-  desc_motor    String          @unique @db.VarChar(60)
-  aplicacion    aplicacion[]
-  base_de_datos base_de_datos[]
-  servidor      servidor[]
+  id_motor_bd        Int             @id
+  desc_motor         String          @unique @db.VarChar(60)
+  fecha_creacion     DateTime        @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?         @db.VarChar(45)
+  fecha_modificacion DateTime?       @db.Timestamptz(6)
+  ip_modificacion    String?         @db.VarChar(45)
+  aplicacion         aplicacion[]
+  base_de_datos      base_de_datos[]
+  servidor           servidor[]
 }
 
 model proceso_negocio {
   id_proceso         Int                  @id
   id_dominio         Int
   desc_proceso       String               @db.VarChar(160)
+  fecha_creacion     DateTime             @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?              @db.VarChar(45)
+  fecha_modificacion DateTime?            @db.Timestamptz(6)
+  ip_modificacion    String?              @db.VarChar(45)
   aplicacion_proceso aplicacion_proceso[]
   dominio_funcional  dominio_funcional    @relation(fields: [id_dominio], references: [id_dominio], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -150,13 +186,21 @@ model servidor {
   pico_uso_cpu_1anio     Decimal?        @db.Decimal(5, 2)
   ubicacion              String?         @db.VarChar(120)
   responsable_tecnico    String?         @db.VarChar(160)
+  fecha_creacion         DateTime        @default(now()) @db.Timestamptz(6)
+  ip_creacion            String?         @db.VarChar(45)
+  fecha_modificacion     DateTime?       @db.Timestamptz(6)
+  ip_modificacion        String?         @db.VarChar(45)
   base_de_datos          base_de_datos[]
   ambiente               ambiente?       @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)
   motor_bd               motor_bd?       @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model tipo_proceso {
-  id_tipo_proceso   Int                 @id
-  desc_tipo_proceso String              @unique @db.VarChar(60)
-  dominio_funcional dominio_funcional[]
+  id_tipo_proceso    Int                 @id
+  desc_tipo_proceso  String              @unique @db.VarChar(60)
+  fecha_creacion     DateTime            @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?             @db.VarChar(45)
+  fecha_modificacion DateTime?           @db.Timestamptz(6)
+  ip_modificacion    String?             @db.VarChar(45)
+  dominio_funcional  dominio_funcional[]
 }

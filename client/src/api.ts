@@ -1,5 +1,5 @@
 export type Field = {
-  name: string; type: string; isPk: boolean; hasDefault: boolean; required: boolean;
+  name: string; type: string; isPk: boolean; hasDefault: boolean; required: boolean; auto?: boolean;
   fk: { model: string; toField: string; label: string[] } | null;
 };
 export type Rel = { key: string; label: string; mode: "nm" | "ro" | "child"; target: string };

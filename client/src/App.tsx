@@ -182,7 +182,7 @@ function RecordForm({ model, opts, rec, onClose, onSaved }: { model: Model; opts
   const [form, setForm] = useState<any>(init);
   const [err, setErr] = useState("");
 
-  const editable = model.fields.filter((f) => !(f.isPk && f.hasDefault));  // oculta PK identity
+  const editable = model.fields.filter((f) => !(f.isPk && f.hasDefault) && !f.auto);  // oculta PK identity y auditoría
   const set = (n: string, v: any) => setForm((p: any) => ({ ...p, [n]: v }));
 
   const save = async () => {

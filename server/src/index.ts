@@ -36,6 +36,9 @@ const REL: Record<string, any[]> = {
   ],
 };
 
+const AUDIT = new Set(["fecha_creacion", "ip_creacion", "fecha_modificacion", "ip_modificacion"]);
+const clientIp = (req: any) => (String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || null);
+
 const models = (Prisma.dmmf.datamodel.models as any[]);
 const modelByName = (n: string) => models.find((m) => m.name === n);
 const delegate = (n: string) => (prisma as any)[n];
@@ -63,6 +66,7 @@ function scalarMeta(m: any) {
       isPk: pks.includes(f.name),
       hasDefault: !!f.hasDefaultValue,    // identity/serial => no pedir en alta
       required: f.isRequired && !f.hasDefaultValue,
+      auto: AUDIT.has(f.name),            // auditoría: no editable (la pone el servidor)
       fk: fk[f.name] || null,
     }));
   return { pks, fields };
@@ -82,6 +86,7 @@ function writableBody(m: any, body: any, isCreate: boolean) {
   const out: any = {};
   for (const f of m.fields) {
     if (f.kind !== "scalar" && f.kind !== "enum") continue;
+    if (AUDIT.has(f.name)) continue;                    // auditoría: la pone el servidor
     if (!(f.name in body)) continue;
     if (f.isId && f.hasDefaultValue) continue;          // identity: no insertar/editar id
     out[f.name] = coerce(m, f.name, body[f.name]);
@@ -162,7 +167,8 @@ app.post("/api/:model", async (req, res) => {
   try {
     const m = modelByName(req.params.model);
     if (!m || HIDDEN.has(m.name)) return res.status(404).json({ error: "modelo no disponible" });
-    const row = await delegate(m.name).create({ data: writableBody(m, req.body, true) });
+    const data = writableBody(m, req.body, true); data.ip_creacion = clientIp(req);
+    const row = await delegate(m.name).create({ data });
     res.json(row);
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
@@ -171,7 +177,8 @@ app.put("/api/:model/:id", async (req, res) => {
   try {
     const m = modelByName(req.params.model);
     if (!m || HIDDEN.has(m.name)) return res.status(404).json({ error: "modelo no disponible" });
-    const row = await delegate(m.name).update({ where: whereId(m, req.params), data: writableBody(m, req.body, false) });
+    const data = writableBody(m, req.body, false); data.fecha_modificacion = new Date(); data.ip_modificacion = clientIp(req);
+    const row = await delegate(m.name).update({ where: whereId(m, req.params), data });
     res.json(row);
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
@@ -193,7 +200,7 @@ app.get("/api/aplicacion/:id/basedatos", async (req, res) => {
   res.json(links.map((l) => ({ id_bd: l.id_bd, nombre_bd: l.base_de_datos.nombre_bd })));
 });
 app.post("/api/aplicacion/:id/basedatos", async (req, res) => {
-  try { await prisma.aplicacion_basedatos.create({ data: { id_aplicacion: +req.params.id, id_bd: +req.body.id_bd } }); res.json({ ok: true }); }
+  try { await prisma.aplicacion_basedatos.create({ data: { id_aplicacion: +req.params.id, id_bd: +req.body.id_bd, ip_creacion: clientIp(req) } }); res.json({ ok: true }); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 app.delete("/api/aplicacion/:id/basedatos/:id_bd", async (req, res) => {
@@ -206,7 +213,7 @@ app.get("/api/aplicacion/:id/procesos", async (req, res) => {
   res.json(links.map((l) => ({ id_proceso: l.id_proceso, desc_proceso: l.proceso_negocio.desc_proceso })));
 });
 app.post("/api/aplicacion/:id/procesos", async (req, res) => {
-  try { await prisma.aplicacion_proceso.create({ data: { id_aplicacion: +req.params.id, id_proceso: +req.body.id_proceso } }); res.json({ ok: true }); }
+  try { await prisma.aplicacion_proceso.create({ data: { id_aplicacion: +req.params.id, id_proceso: +req.body.id_proceso, ip_creacion: clientIp(req) } }); res.json({ ok: true }); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 app.delete("/api/aplicacion/:id/procesos/:id_proceso", async (req, res) => {
@@ -219,7 +226,7 @@ app.get("/api/base_de_datos/:id/aplicaciones", async (req, res) => {
   res.json(links.map((l) => ({ id: l.id_aplicacion, id_app: l.aplicacion.id_app, nombre_app: l.aplicacion.nombre_app })));
 });
 app.post("/api/base_de_datos/:id/aplicaciones", async (req, res) => {
-  try { await prisma.aplicacion_basedatos.create({ data: { id_bd: +req.params.id, id_aplicacion: +req.body.id } }); res.json({ ok: true }); }
+  try { await prisma.aplicacion_basedatos.create({ data: { id_bd: +req.params.id, id_aplicacion: +req.body.id, ip_creacion: clientIp(req) } }); res.json({ ok: true }); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 app.delete("/api/base_de_datos/:id/aplicaciones/:aid", async (req, res) => {
@@ -245,6 +252,7 @@ app.post("/api/base_de_datos/:id/integraciones", async (req, res) => {
       id_bd_origen: +req.params.id, id_bd_destino: b.id_bd_destino ? +b.id_bd_destino : null,
       destino_externo: b.destino_externo || null, mecanismo: b.mecanismo || null,
       nombre_enlace: b.nombre_enlace || null, esquema_owner: b.esquema_owner || null, estado_enlace: b.estado_enlace || null,
+      ip_creacion: clientIp(req),
     } });
     res.json(row);
   } catch (e: any) { res.status(400).json({ error: e.message }); }
