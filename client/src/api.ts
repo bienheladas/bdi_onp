@@ -18,6 +18,7 @@ async function req(url: string, opts: RequestInit = {}) {
 }
 export const api = {
   meta: (): Promise<Model[]> => req("/api/meta"),
+  one: (m: string, id: any): Promise<any> => req(`/api/${m}/${id}`),
   list: (m: string, q = "", skip = 0, take = 50): Promise<{ rows: any[]; total: number }> =>
     req(`/api/${m}?q=${encodeURIComponent(q)}&skip=${skip}&take=${take}`),
   options: (m: string): Promise<Opt[]> => req(`/api/${m}/options`),

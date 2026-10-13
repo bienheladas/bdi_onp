@@ -10,14 +10,11 @@ export default function App() {
   const [cur, setCur] = useState<string>("base_de_datos");
   const [opts, setOpts] = useState<Record<string, Opt[]>>({});
   const [gate, setGate] = useState<"loading" | "ok" | "login">("loading");
+  const [pending, setPending] = useState<{ model: string; id: any } | null>(null);
   const model = useMemo(() => models.find((m) => m.name === cur), [models, cur]);
 
   const loadMeta = () => api.meta().then((m) => { setModels(m); setGate("ok"); }).catch((e: any) => setGate(e.auth ? "login" : "ok"));
   useEffect(() => { loadMeta(); }, []);
-
-  if (gate === "loading") return <p style={{ padding: 24 }}>Cargando…</p>;
-  if (gate === "login") return <Login onOk={loadMeta} />;
-
   // carga opciones de los modelos FK del modelo actual
   useEffect(() => {
     if (!model) return;
@@ -27,6 +24,10 @@ export default function App() {
   }, [model]);
 
   const ensureOpts = (mn: string) => { if (!opts[mn]) api.options(mn).then((o) => setOpts((p) => ({ ...p, [mn]: o }))); };
+  const go = (m: string, id: any) => { setCur(m); setPending({ model: m, id }); };
+
+  if (gate === "loading") return <p style={{ padding: 24 }}>Cargando…</p>;
+  if (gate === "login") return <Login onOk={loadMeta} />;
 
   return (
     <div className="app">
@@ -45,8 +46,8 @@ export default function App() {
       </nav>
       <main className="main">
         {cur === "__pend__"
-          ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} />
-          : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} /> : <p>Cargando…</p>}
+          ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} go={go} />
+          : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} pending={pending} clearPending={() => setPending(null)} /> : <p>Cargando…</p>}
       </main>
     </div>
   );
@@ -64,7 +65,7 @@ const cell = (opts: any, f: Field, v: any) => {
   return String(v);
 };
 
-function Grid({ model, models, opts, ensureOpts }: { model: Model; models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void }) {
+function Grid({ model, models, opts, ensureOpts, go, pending, clearPending }: { model: Model; models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void; go: (m: string, id: any) => void; pending: { model: string; id: any } | null; clearPending: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -77,6 +78,12 @@ function Grid({ model, models, opts, ensureOpts }: { model: Model; models: Model
   const load = () => api.list(model.name, q, page * PAGE, PAGE).then((d) => { setRows(d.rows); setTotal(d.total); });
   useEffect(() => { load(); }, [model.name, page]);
   useEffect(() => { const t = setTimeout(() => { setPage(0); load(); }, 300); return () => clearTimeout(t); }, [q]);
+  // navegación: si venimos de otro registro, abre el formulario de este
+  useEffect(() => {
+    if (pending && pending.model === model.name) {
+      api.one(model.name, pending.id).then((r) => setEdit(r)).catch(() => {}).finally(clearPending);
+    }
+  }, []);
 
   return (
     <>
@@ -94,7 +101,10 @@ function Grid({ model, models, opts, ensureOpts }: { model: Model; models: Model
           <tbody>
             {rows.map((r) => (
               <tr key={r[pk]}>
-                {cols.map((f) => <td key={f.name} title={cell(opts, f, r[f.name])}>{cell(opts, f, r[f.name])}</td>)}
+                {cols.map((f) => {
+                  const txt = cell(opts, f, r[f.name]);
+                  return <td key={f.name} title={txt}>{f.fk && r[f.name] != null ? <a className="lnk" onClick={() => go(f.fk!.model, r[f.name])}>{txt}</a> : txt}</td>;
+                })}
                 <td><div className="acts">
                   <button className="btn xs sec" onClick={() => setEdit(r)}>editar</button>
                   <button className="btn xs danger" onClick={async () => { if (confirm("¿Eliminar registro?")) { try { await api.remove(model.name, r[pk]); load(); } catch (e: any) { alert(e.message); } } }}>borrar</button>
@@ -112,7 +122,7 @@ function Grid({ model, models, opts, ensureOpts }: { model: Model; models: Model
       </div>
 
       {edit && <RecordForm model={model} opts={opts} rec={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
-      {rel && <RelationModal parent={model} models={models} opts={opts} ensureOpts={ensureOpts} rel={rel.rel} row={rel.row} onClose={() => setRel(null)} />}
+      {rel && <RelationModal parent={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} rel={rel.rel} row={rel.row} onClose={() => setRel(null)} />}
     </>
   );
 }
@@ -136,7 +146,7 @@ function Login({ onOk }: { onOk: () => void }) {
   );
 }
 
-function Pendientes({ models, opts, ensureOpts }: { models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void }) {
+function Pendientes({ models, opts, ensureOpts, go }: { models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void; go: (m: string, id: any) => void }) {
   const [data, setData] = useState<{ bd_sin_app: any[]; apps_sin_proceso: any[] }>({ bd_sin_app: [], apps_sin_proceso: [] });
   const [rel, setRel] = useState<any | null>(null);
   const load = () => fetch("/api/pendientes").then((r) => r.json()).then(setData);
@@ -153,7 +163,7 @@ function Pendientes({ models, opts, ensureOpts }: { models: Model[]; opts: Recor
           <table><thead><tr><th>BD sin aplicación ({data.bd_sin_app.length})</th><th></th></tr></thead>
             <tbody>
               {data.bd_sin_app.map((b) => (
-                <tr key={b.id_bd}><td>{b.nombre_bd}</td>
+                <tr key={b.id_bd}><td><a className="lnk" onClick={() => go("base_de_datos", b.id_bd)}>{b.nombre_bd}</a></td>
                   <td><button className="btn xs" onClick={() => { ensureOpts("aplicacion"); setRel({ parent: bdModel, rel: bdRel, row: { id_bd: b.id_bd, nombre_bd: b.nombre_bd } }); }}>Asociar app</button></td></tr>
               ))}
               {data.bd_sin_app.length === 0 && <tr><td colSpan={2} className="muted">Nada pendiente 🎉</td></tr>}
@@ -163,14 +173,14 @@ function Pendientes({ models, opts, ensureOpts }: { models: Model[]; opts: Recor
           <table><thead><tr><th>App con BD pero sin proceso ({data.apps_sin_proceso.length})</th><th></th></tr></thead>
             <tbody>
               {data.apps_sin_proceso.map((a) => (
-                <tr key={a.id}><td>{a.id_app} · {a.nombre_app}</td>
+                <tr key={a.id}><td><a className="lnk" onClick={() => go("aplicacion", a.id)}>{a.id_app} · {a.nombre_app}</a></td>
                   <td><button className="btn xs" onClick={() => { ensureOpts("proceso_negocio"); setRel({ parent: appModel, rel: procRel, row: { id: a.id, id_app: a.id_app, nombre_app: a.nombre_app } }); }}>Agregar proceso</button></td></tr>
               ))}
               {data.apps_sin_proceso.length === 0 && <tr><td colSpan={2} className="muted">Nada pendiente 🎉</td></tr>}
             </tbody></table>
         </div>
       </div>
-      {rel && <RelationModal parent={rel.parent} models={models} opts={opts} ensureOpts={ensureOpts} rel={rel.rel} row={rel.row} onClose={() => { setRel(null); load(); }} />}
+      {rel && <RelationModal parent={rel.parent} models={models} opts={opts} ensureOpts={ensureOpts} go={go} rel={rel.rel} row={rel.row} onClose={() => { setRel(null); load(); }} />}
     </>
   );
 }
@@ -241,7 +251,7 @@ function FieldInput({ f, opts, value, disabled, onChange }: { f: Field; opts: Re
   return <input type="text" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
 }
 
-function RelationModal({ parent, models, opts, ensureOpts, rel, row, onClose }: any) {
+function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose }: any) {
   const pid = row[parent.pks[0]];
   const target: Model = models.find((m: Model) => m.name === rel.target);
   const tgtPk = target?.pks[0];
@@ -278,7 +288,7 @@ function RelationModal({ parent, models, opts, ensureOpts, rel, row, onClose }: 
                 <button className="btn" onClick={addNM}>Asociar</button>
               </div>
               <div className="chips">
-                {items.map((it) => <span className="chip" key={it[tgtPk]}>{it[tgtLabel] ?? it[tgtPk]}<button onClick={() => delNM(it[tgtPk])}>×</button></span>)}
+                {items.map((it) => <span className="chip" key={it[tgtPk]}><a className="lnk" onClick={() => go(rel.target, it[tgtPk])}>{it[tgtLabel] ?? it[tgtPk]}</a><button onClick={() => delNM(it[tgtPk])}>×</button></span>)}
                 {items.length === 0 && <span className="muted">Sin asociaciones.</span>}
               </div>
             </>
@@ -294,7 +304,7 @@ function RelationModal({ parent, models, opts, ensureOpts, rel, row, onClose }: 
                 <thead><tr><th>destino</th><th>mecanismo</th><th>enlace</th><th>owner</th><th>estado</th><th></th></tr></thead>
                 <tbody>{items.map((it) => (
                   <tr key={it.id_integracion}>
-                    <td>{it.destino}</td><td>{it.mecanismo}</td><td>{it.nombre_enlace}</td><td>{it.esquema_owner}</td><td>{it.estado_enlace}</td>
+                    <td>{it.id_bd_destino ? <a className="lnk" onClick={() => go("base_de_datos", it.id_bd_destino)}>{it.destino}</a> : it.destino}</td><td>{it.mecanismo}</td><td>{it.nombre_enlace}</td><td>{it.esquema_owner}</td><td>{it.estado_enlace}</td>
                     <td><button className="btn xs danger" onClick={async () => { try { await api.relDel(parent.name, pid, rel.key, it.id_integracion); reload(); } catch (e: any) { setErr(e.message); } }}>borrar</button></td>
                   </tr>))}
                   {items.length === 0 && <tr><td colSpan={6} className="muted">Sin integraciones.</td></tr>}</tbody></table></div>

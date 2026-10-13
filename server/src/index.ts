@@ -163,6 +163,16 @@ app.get("/api/:model/options", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+app.get("/api/:model/:id", async (req, res) => {
+  try {
+    const m = modelByName(req.params.model);
+    if (!m || HIDDEN.has(m.name)) return res.status(404).json({ error: "modelo no disponible" });
+    const row = await delegate(m.name).findUnique({ where: whereId(m, req.params) });
+    if (!row) return res.status(404).json({ error: "no encontrado" });
+    res.json(row);
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
 app.post("/api/:model", async (req, res) => {
   try {
     const m = modelByName(req.params.model);
