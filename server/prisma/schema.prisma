@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ambiente {
+  id_ambiente   Int             @id
+  desc_ambiente String          @unique @db.VarChar(50)
+  base_de_datos base_de_datos[]
+  servidor      servidor[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model aplicacion {
+  id                   Int                    @id @default(autoincrement())
+  id_app               String                 @unique @db.VarChar(12)
+  ambito               String?                @db.VarChar(30)
+  abreviatura_app      String?                @db.VarChar(80)
+  nombre_app           String?                @db.VarChar(250)
+  desc_app             String?
+  id_motor_bd          Int?
+  version              String?                @db.VarChar(80)
+  instancia_bd         Json?
+  nombre_esquema_bd    Json?
+  estado_app           String?                @db.VarChar(40)
+  nombre_lider_usuario String?
+  cargo_lider_usuario  String?
+  area_usuaria_resp    String?
+  unidad_jerarquica    String?
+  gestor_resp          String?
+  criticidad           String?                @db.VarChar(20)
+  motor_bd             motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
+  aplicacion_basedatos aplicacion_basedatos[]
+  aplicacion_proceso   aplicacion_proceso[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model aplicacion_basedatos {
+  id_aplicacion Int
+  id_bd         Int
+  aplicacion    aplicacion    @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  base_de_datos base_de_datos @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([id_aplicacion, id_bd])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model aplicacion_proceso {
+  id_aplicacion   Int
+  id_proceso      Int
+  aplicacion      aplicacion      @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  proceso_negocio proceso_negocio @relation(fields: [id_proceso], references: [id_proceso], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([id_aplicacion, id_proceso])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model base_de_datos {
+  id_bd                                                    Int                    @id @default(autoincrement())
+  nombre_bd                                                String                 @db.VarChar(160)
+  id_servidor                                              Int?
+  id_ambiente                                              Int?
+  id_motor_bd                                              Int?
+  version_bd                                               String?                @db.VarChar(60)
+  desc_base_datos                                          String?
+  tipo_bd                                                  String?                @db.VarChar(80)
+  tipo_info_gest                                           String?
+  dominio_funcional_onp                                    String?
+  proceso_misional_onp                                     String?
+  area_usuario_resp_onp                                    String?
+  area_tecnica_resp_onp                                    String?
+  tamano_gb                                                Decimal?               @db.Decimal(14, 2)
+  nro_esquemas                                             Int?
+  nro_tablas                                               Int?
+  crecimiento_gb                                           Decimal?               @db.Decimal(14, 2)
+  estado_bd                                                String?
+  gestor                                                   String?
+  resp_funcional                                           String?
+  aplicacion_basedatos                                     aplicacion_basedatos[]
+  ambiente                                                 ambiente?              @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)
+  motor_bd                                                 motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
+  servidor                                                 servidor?              @relation(fields: [id_servidor], references: [id_servidor], onDelete: NoAction, onUpdate: NoAction)
+  integraciones_integraciones_id_bd_destinoTobase_de_datos integraciones[]        @relation("integraciones_id_bd_destinoTobase_de_datos")
+  integraciones_integraciones_id_bd_origenTobase_de_datos  integraciones[]        @relation("integraciones_id_bd_origenTobase_de_datos")
+}
+
+model dominio_funcional {
+  id_dominio      Int               @id
+  id_tipo_proceso Int
+  desc_dominio    String            @db.VarChar(120)
+  tipo_proceso    tipo_proceso      @relation(fields: [id_tipo_proceso], references: [id_tipo_proceso], onDelete: NoAction, onUpdate: NoAction)
+  proceso_negocio proceso_negocio[]
+
+  @@unique([id_tipo_proceso, desc_dominio])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model integraciones {
+  id_integracion                                           Int            @id @default(autoincrement())
+  id_bd_origen                                             Int
+  id_bd_destino                                            Int?
+  destino_externo                                          String?        @db.VarChar(160)
+  mecanismo                                                String?        @db.VarChar(120)
+  nombre_enlace                                            String?        @db.VarChar(200)
+  esquema_owner                                            String?        @db.VarChar(120)
+  estado_enlace                                            String?        @db.VarChar(40)
+  base_de_datos_integraciones_id_bd_destinoTobase_de_datos base_de_datos? @relation("integraciones_id_bd_destinoTobase_de_datos", fields: [id_bd_destino], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  base_de_datos_integraciones_id_bd_origenTobase_de_datos  base_de_datos  @relation("integraciones_id_bd_origenTobase_de_datos", fields: [id_bd_origen], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model motor_bd {
+  id_motor_bd   Int             @id
+  desc_motor    String          @unique @db.VarChar(60)
+  aplicacion    aplicacion[]
+  base_de_datos base_de_datos[]
+  servidor      servidor[]
+}
+
+model proceso_negocio {
+  id_proceso         Int                  @id
+  id_dominio         Int
+  desc_proceso       String               @db.VarChar(160)
+  aplicacion_proceso aplicacion_proceso[]
+  dominio_funcional  dominio_funcional    @relation(fields: [id_dominio], references: [id_dominio], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model servidor {
+  id_servidor            Int             @id @default(autoincrement())
+  nombre_servidor        String          @unique @db.VarChar(120)
+  fabricante_servidor    String?         @db.VarChar(120)
+  nombre_so              String?         @db.VarChar(60)
+  version_so             String?         @db.VarChar(60)
+  tipo_servidor          String?         @db.VarChar(60)
+  id_ambiente            Int?
+  id_motor_bd            Int?
+  fec_operacion_servidor DateTime?       @db.Date
+  fec_fin_soporte_bd     DateTime?       @db.Date
+  comentario             String?
+  nro_cores              Int?
+  memoria_gb             Int?
+  disco_asignado_gb      Decimal?        @db.Decimal(14, 2)
+  disco_utilizado_gb     Decimal?        @db.Decimal(14, 2)
+  porc_uso_cpu_prom      Decimal?        @db.Decimal(5, 2)
+  porc_uso_mem_prom      Decimal?        @db.Decimal(5, 2)
+  pico_uso_cpu_1anio     Decimal?        @db.Decimal(5, 2)
+  ubicacion              String?         @db.VarChar(120)
+  responsable_tecnico    String?         @db.VarChar(160)
+  base_de_datos          base_de_datos[]
+  ambiente               ambiente?       @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)
+  motor_bd               motor_bd?       @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model tipo_proceso {
+  id_tipo_proceso   Int                 @id
+  desc_tipo_proceso String              @unique @db.VarChar(60)
+  dominio_funcional dominio_funcional[]
+}

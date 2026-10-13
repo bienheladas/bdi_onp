@@ -1,0 +1,35 @@
+# Despliegue en Coolify (recurso "Docker Compose").
+# Define en Coolify las variables: DATABASE_URL y ADMIN_PASSWORD.
+# La API se une a la red externa 'coolify' para alcanzar el contenedor Postgres de ONP
+# por su hostname interno (vfyn4fyx9lqwhd3tj87yjxze:5432).
+services:
+  api:
+    build:
+      context: ./server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4100
+      DATABASE_URL: ${DATABASE_URL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    expose:
+      - "4100"
+    networks:
+      - default
+      - coolify
+
+  web:
+    build:
+      context: ./client
+    restart: unless-stopped
+    depends_on:
+      - api
+    # Traefik de Coolify enruta el dominio a este servicio (puerto 80).
+    expose:
+      - "80"
+    networks:
+      - default
+
+networks:
+  coolify:
+    external: true

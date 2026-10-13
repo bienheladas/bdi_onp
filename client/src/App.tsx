@@ -1,0 +1,321 @@
+import { useEffect, useMemo, useState } from "react";
+import { api, setKey, Model, Field, Opt, Rel } from "./api";
+
+const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio"];
+const ENT = ["servidor", "base_de_datos", "aplicacion"];
+const PAGE = 50;
+
+export default function App() {
+  const [models, setModels] = useState<Model[]>([]);
+  const [cur, setCur] = useState<string>("base_de_datos");
+  const [opts, setOpts] = useState<Record<string, Opt[]>>({});
+  const [gate, setGate] = useState<"loading" | "ok" | "login">("loading");
+  const model = useMemo(() => models.find((m) => m.name === cur), [models, cur]);
+
+  const loadMeta = () => api.meta().then((m) => { setModels(m); setGate("ok"); }).catch((e: any) => setGate(e.auth ? "login" : "ok"));
+  useEffect(() => { loadMeta(); }, []);
+
+  if (gate === "loading") return <p style={{ padding: 24 }}>Cargando…</p>;
+  if (gate === "login") return <Login onOk={loadMeta} />;
+
+  // carga opciones de los modelos FK del modelo actual
+  useEffect(() => {
+    if (!model) return;
+    const need = new Set<string>();
+    model.fields.forEach((f) => f.fk && need.add(f.fk.model));
+    need.forEach((mn) => { if (!opts[mn]) api.options(mn).then((o) => setOpts((p) => ({ ...p, [mn]: o }))); });
+  }, [model]);
+
+  const ensureOpts = (mn: string) => { if (!opts[mn]) api.options(mn).then((o) => setOpts((p) => ({ ...p, [mn]: o }))); };
+
+  return (
+    <div className="app">
+      <nav className="side">
+        <h1>BDI ONP · Modelo</h1>
+        <div className="grp">Tablero</div>
+        <a className={cur === "__pend__" ? "active" : ""} onClick={() => setCur("__pend__")}>⚠ Pendientes</a>
+        <div className="grp">Catálogos</div>
+        {CAT.map((n) => models.find((m) => m.name === n) && (
+          <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
+        ))}
+        <div className="grp">Entidades</div>
+        {ENT.map((n) => models.find((m) => m.name === n) && (
+          <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
+        ))}
+      </nav>
+      <main className="main">
+        {cur === "__pend__"
+          ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} />
+          : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} /> : <p>Cargando…</p>}
+      </main>
+    </div>
+  );
+}
+
+function fkLabel(opts: Record<string, Opt[]>, f: Field, val: any) {
+  if (val == null) return "";
+  const o = opts[f.fk!.model]?.find((x) => x.value === val);
+  return o ? o.label : String(val);
+}
+const cell = (opts: any, f: Field, v: any) => {
+  if (v == null) return "";
+  if (f.fk) return fkLabel(opts, f, v);
+  if (f.type === "Json") return Array.isArray(v) ? v.join(", ") : JSON.stringify(v);
+  return String(v);
+};
+
+function Grid({ model, models, opts, ensureOpts }: { model: Model; models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const [edit, setEdit] = useState<any | null>(null);  // registro en edición (o {} nuevo)
+  const [rel, setRel] = useState<{ rel: Rel; row: any } | null>(null);
+  const pk = model.pks[0];
+  const cols = model.fields.filter((f) => f.type !== "Json" || true); // mostrar todas
+
+  const load = () => api.list(model.name, q, page * PAGE, PAGE).then((d) => { setRows(d.rows); setTotal(d.total); });
+  useEffect(() => { load(); }, [model.name, page]);
+  useEffect(() => { const t = setTimeout(() => { setPage(0); load(); }, 300); return () => clearTimeout(t); }, [q]);
+
+  return (
+    <>
+      <div className="toolbar">
+        <h2>{model.name} <span className="pill">{total}</span></h2>
+        <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button className="btn" onClick={() => setEdit({})}>+ Nuevo</button>
+      </div>
+      <div className="tablewrap">
+        <table>
+          <thead><tr>
+            {cols.map((f) => <th key={f.name}>{f.name}</th>)}
+            <th>acciones</th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r[pk]}>
+                {cols.map((f) => <td key={f.name} title={cell(opts, f, r[f.name])}>{cell(opts, f, r[f.name])}</td>)}
+                <td><div className="acts">
+                  <button className="btn xs sec" onClick={() => setEdit(r)}>editar</button>
+                  <button className="btn xs danger" onClick={async () => { if (confirm("¿Eliminar registro?")) { try { await api.remove(model.name, r[pk]); load(); } catch (e: any) { alert(e.message); } } }}>borrar</button>
+                  {model.relations.map((rl) => <button key={rl.key} className="btn xs" onClick={() => { ensureOpts(rl.target); setRel({ rel: rl, row: r }); }}>{rl.label}</button>)}
+                </div></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="pager">
+        <button className="btn sec" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>◀</button>
+        <span className="muted">Página {page + 1} de {Math.max(1, Math.ceil(total / PAGE))}</span>
+        <button className="btn sec" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>▶</button>
+      </div>
+
+      {edit && <RecordForm model={model} opts={opts} rec={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
+      {rel && <RelationModal parent={model} models={models} opts={opts} ensureOpts={ensureOpts} rel={rel.rel} row={rel.row} onClose={() => setRel(null)} />}
+    </>
+  );
+}
+
+function Login({ onOk }: { onOk: () => void }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const submit = async () => { setKey(pw); try { await api.meta(); onOk(); } catch (e: any) { setErr(e.auth ? "Clave incorrecta" : e.message); } };
+  return (
+    <div className="overlay" style={{ alignItems: "center" }}>
+      <div className="modal" style={{ width: 360 }}>
+        <h3>BDI ONP · Acceso</h3>
+        {err && <div className="err">{err}</div>}
+        <div className="body">
+          <div className="frow"><label>Clave de acceso</label>
+            <input type="password" value={pw} autoFocus onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} /></div>
+        </div>
+        <div className="foot"><button className="btn" onClick={submit}>Entrar</button></div>
+      </div>
+    </div>
+  );
+}
+
+function Pendientes({ models, opts, ensureOpts }: { models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void }) {
+  const [data, setData] = useState<{ bd_sin_app: any[]; apps_sin_proceso: any[] }>({ bd_sin_app: [], apps_sin_proceso: [] });
+  const [rel, setRel] = useState<any | null>(null);
+  const load = () => fetch("/api/pendientes").then((r) => r.json()).then(setData);
+  useEffect(() => { load(); }, []);
+  const bdModel = models.find((m) => m.name === "base_de_datos")!;
+  const appModel = models.find((m) => m.name === "aplicacion")!;
+  const bdRel = bdModel?.relations.find((r) => r.key === "aplicaciones");
+  const procRel = appModel?.relations.find((r) => r.key === "procesos");
+  return (
+    <>
+      <div className="toolbar"><h2>Pendientes por completar</h2></div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div className="tablewrap">
+          <table><thead><tr><th>BD sin aplicación ({data.bd_sin_app.length})</th><th></th></tr></thead>
+            <tbody>
+              {data.bd_sin_app.map((b) => (
+                <tr key={b.id_bd}><td>{b.nombre_bd}</td>
+                  <td><button className="btn xs" onClick={() => { ensureOpts("aplicacion"); setRel({ parent: bdModel, rel: bdRel, row: { id_bd: b.id_bd, nombre_bd: b.nombre_bd } }); }}>Asociar app</button></td></tr>
+              ))}
+              {data.bd_sin_app.length === 0 && <tr><td colSpan={2} className="muted">Nada pendiente 🎉</td></tr>}
+            </tbody></table>
+        </div>
+        <div className="tablewrap">
+          <table><thead><tr><th>App con BD pero sin proceso ({data.apps_sin_proceso.length})</th><th></th></tr></thead>
+            <tbody>
+              {data.apps_sin_proceso.map((a) => (
+                <tr key={a.id}><td>{a.id_app} · {a.nombre_app}</td>
+                  <td><button className="btn xs" onClick={() => { ensureOpts("proceso_negocio"); setRel({ parent: appModel, rel: procRel, row: { id: a.id, id_app: a.id_app, nombre_app: a.nombre_app } }); }}>Agregar proceso</button></td></tr>
+              ))}
+              {data.apps_sin_proceso.length === 0 && <tr><td colSpan={2} className="muted">Nada pendiente 🎉</td></tr>}
+            </tbody></table>
+        </div>
+      </div>
+      {rel && <RelationModal parent={rel.parent} models={models} opts={opts} ensureOpts={ensureOpts} rel={rel.rel} row={rel.row} onClose={() => { setRel(null); load(); }} />}
+    </>
+  );
+}
+
+function RecordForm({ model, opts, rec, onClose, onSaved }: { model: Model; opts: Record<string, Opt[]>; rec: any; onClose: () => void; onSaved: () => void }) {
+  const isNew = !rec[model.pks[0]] && model.pks.every((k) => rec[k] === undefined);
+  const init: any = {};
+  model.fields.forEach((f) => { init[f.name] = rec[f.name] == null ? "" : (f.type === "Json" ? JSON.stringify(rec[f.name]) : f.type === "DateTime" ? String(rec[f.name]).slice(0, 10) : rec[f.name]); });
+  const [form, setForm] = useState<any>(init);
+  const [err, setErr] = useState("");
+
+  const editable = model.fields.filter((f) => !(f.isPk && f.hasDefault));  // oculta PK identity
+  const set = (n: string, v: any) => setForm((p: any) => ({ ...p, [n]: v }));
+
+  const save = async () => {
+    try {
+      const body: any = {};
+      for (const f of editable) {
+        if (!isNew && f.isPk) continue;                // no cambiar PK en edición
+        let v = form[f.name];
+        if (v === "" || v == null) { body[f.name] = null; continue; }
+        if (f.type === "Json") { try { body[f.name] = JSON.parse(v); } catch { throw new Error(`JSON inválido en ${f.name}`); } }
+        else if (f.type === "DateTime") body[f.name] = v.length === 10 ? v + "T00:00:00.000Z" : v;
+        else body[f.name] = v;
+      }
+      if (isNew) await api.create(model.name, body);
+      else await api.update(model.name, rec[model.pks[0]] ?? model.pks.map((k) => rec[k]).join("/"), body);
+      onSaved();
+    } catch (e: any) { setErr(e.message); }
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>{isNew ? "Nuevo" : "Editar"} · {model.name}</h3>
+        {err && <div className="err">{err}</div>}
+        <div className="body">
+          {editable.map((f) => (
+            <div className="frow" key={f.name}>
+              <label>{f.name}{f.required && <span className="req"> *</span>}{f.fk && <span className="muted"> (→{f.fk.model})</span>}</label>
+              <FieldInput f={f} opts={opts} value={form[f.name]} disabled={!isNew && f.isPk} onChange={(v) => set(f.name, v)} />
+            </div>
+          ))}
+        </div>
+        <div className="foot">
+          <button className="btn sec" onClick={onClose}>Cancelar</button>
+          <button className="btn" onClick={save}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldInput({ f, opts, value, disabled, onChange }: { f: Field; opts: Record<string, Opt[]>; value: any; disabled?: boolean; onChange: (v: any) => void }) {
+  if (f.fk) {
+    const o = opts[f.fk.model] || [];
+    return (
+      <select value={value ?? ""} disabled={disabled} onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))}>
+        <option value="">— (ninguno)</option>
+        {o.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+      </select>
+    );
+  }
+  if (f.type === "Json") return <textarea rows={2} placeholder='["valor1","valor2"]' value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
+  if (f.type === "DateTime") return <input type="date" value={value || ""} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
+  if (f.type === "Int" || f.type === "Decimal") return <input type="number" step={f.type === "Decimal" ? "any" : "1"} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
+  if (/^(desc_|observ|coment)/.test(f.name)) return <textarea rows={2} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
+  return <input type="text" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
+}
+
+function RelationModal({ parent, models, opts, ensureOpts, rel, row, onClose }: any) {
+  const pid = row[parent.pks[0]];
+  const target: Model = models.find((m: Model) => m.name === rel.target);
+  const tgtPk = target?.pks[0];
+  const tgtLabel = target?.labelFields[0];
+  const [items, setItems] = useState<any[]>([]);
+  const [sel, setSel] = useState("");
+  const [err, setErr] = useState("");
+  const [intg, setIntg] = useState<any>({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", esquema_owner: "", estado_enlace: "" });
+
+  const reload = () => api.relList(parent.name, pid, rel.key).then(setItems).catch((e) => setErr(e.message));
+  useEffect(() => { reload(); if (rel.mode !== "child") ensureOpts(rel.target); else ensureOpts("base_de_datos"); }, []);
+
+  const addNM = async () => { if (!sel) return; try { await api.relAdd(parent.name, pid, rel.key, { [tgtPk]: Number(sel) }); setSel(""); reload(); } catch (e: any) { setErr(e.message); } };
+  const delNM = async (cid: any) => { try { await api.relDel(parent.name, pid, rel.key, cid); reload(); } catch (e: any) { setErr(e.message); } };
+  const addIntg = async () => {
+    try { await api.relAdd(parent.name, pid, rel.key, { ...intg, id_bd_destino: intg.id_bd_destino || null }); setIntg({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", esquema_owner: "", estado_enlace: "" }); reload(); }
+    catch (e: any) { setErr(e.message); }
+  };
+
+  const title = `${rel.label} · ${parent.name} ${parent.labelFields.map((f: string) => row[f]).filter(Boolean).join(" ")}`;
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+        <h3>{title}</h3>
+        {err && <div className="err">{err}</div>}
+        <div className="body">
+          {rel.mode === "nm" && (
+            <>
+              <div className="toolbar" style={{ marginBottom: 10 }}>
+                <select style={{ flex: 1 }} value={sel} onChange={(e) => setSel(e.target.value)}>
+                  <option value="">— elegir {rel.target} para asociar —</option>
+                  {(opts[rel.target] || []).map((o: Opt) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <button className="btn" onClick={addNM}>Asociar</button>
+              </div>
+              <div className="chips">
+                {items.map((it) => <span className="chip" key={it[tgtPk]}>{it[tgtLabel] ?? it[tgtPk]}<button onClick={() => delNM(it[tgtPk])}>×</button></span>)}
+                {items.length === 0 && <span className="muted">Sin asociaciones.</span>}
+              </div>
+            </>
+          )}
+          {rel.mode === "ro" && (
+            <div className="tablewrap"><table><thead><tr><th>id_app</th><th>nombre_app</th></tr></thead>
+              <tbody>{items.map((it) => <tr key={it.id}><td>{it.id_app}</td><td>{it.nombre_app}</td></tr>)}
+                {items.length === 0 && <tr><td colSpan={2} className="muted">Ninguna.</td></tr>}</tbody></table></div>
+          )}
+          {rel.mode === "child" && (
+            <>
+              <div className="tablewrap" style={{ marginBottom: 12 }}><table>
+                <thead><tr><th>destino</th><th>mecanismo</th><th>enlace</th><th>owner</th><th>estado</th><th></th></tr></thead>
+                <tbody>{items.map((it) => (
+                  <tr key={it.id_integracion}>
+                    <td>{it.destino}</td><td>{it.mecanismo}</td><td>{it.nombre_enlace}</td><td>{it.esquema_owner}</td><td>{it.estado_enlace}</td>
+                    <td><button className="btn xs danger" onClick={async () => { try { await api.relDel(parent.name, pid, rel.key, it.id_integracion); reload(); } catch (e: any) { setErr(e.message); } }}>borrar</button></td>
+                  </tr>))}
+                  {items.length === 0 && <tr><td colSpan={6} className="muted">Sin integraciones.</td></tr>}</tbody></table></div>
+              <div className="frow"><label>Agregar integración</label></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <select value={intg.id_bd_destino} onChange={(e) => setIntg({ ...intg, id_bd_destino: e.target.value })}>
+                  <option value="">— BD destino (interna) —</option>
+                  {(opts["base_de_datos"] || []).map((o: Opt) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <input placeholder="destino externo (si no es BD interna)" value={intg.destino_externo} onChange={(e) => setIntg({ ...intg, destino_externo: e.target.value })} />
+                <input placeholder="mecanismo (p.ej. DB Link)" value={intg.mecanismo} onChange={(e) => setIntg({ ...intg, mecanismo: e.target.value })} />
+                <input placeholder="nombre del enlace" value={intg.nombre_enlace} onChange={(e) => setIntg({ ...intg, nombre_enlace: e.target.value })} />
+                <input placeholder="esquema/owner" value={intg.esquema_owner} onChange={(e) => setIntg({ ...intg, esquema_owner: e.target.value })} />
+                <input placeholder="estado" value={intg.estado_enlace} onChange={(e) => setIntg({ ...intg, estado_enlace: e.target.value })} />
+              </div>
+              <div style={{ marginTop: 10, textAlign: "right" }}><button className="btn" onClick={addIntg}>Agregar</button></div>
+            </>
+          )}
+        </div>
+        <div className="foot"><button className="btn sec" onClick={onClose}>Cerrar</button></div>
+      </div>
+    </div>
+  );
+}
