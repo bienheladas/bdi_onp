@@ -41,6 +41,7 @@ model aplicacion {
   ip_creacion          String?                @db.VarChar(45)
   fecha_modificacion   DateTime?              @db.Timestamptz(6)
   ip_modificacion      String?                @db.VarChar(45)
+  observaciones        String?
   motor_bd             motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
   aplicacion_basedatos aplicacion_basedatos[]
   aplicacion_proceso   aplicacion_proceso[]
@@ -100,6 +101,7 @@ model base_de_datos {
   ip_creacion                                              String?                @db.VarChar(45)
   fecha_modificacion                                       DateTime?              @db.Timestamptz(6)
   ip_modificacion                                          String?                @db.VarChar(45)
+  observaciones                                            String?
   aplicacion_basedatos                                     aplicacion_basedatos[]
   ambiente                                                 ambiente?              @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)
   motor_bd                                                 motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
