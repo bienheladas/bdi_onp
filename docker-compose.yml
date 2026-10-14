@@ -26,8 +26,9 @@ services:
       - api
     # Detrás de Traefik (Coolify). El dominio se asigna en la UI de Coolify y
     # Traefik enruta al puerto 80 del contenedor con HTTPS automatico (443).
-    expose:
-      - "80"
+    # NO declarar 'expose: 80' aqui: el Dockerfile ya hace EXPOSE 80. Declararlo
+    # en ambos lados genera puertos ambiguos ({"80","80/tcp"}) y Traefik no sabe
+    # a que puerto conectar -> 504. Con un solo puerto expuesto, autodetecta 80.
     networks:
       - default
       - coolify
