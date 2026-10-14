@@ -24,12 +24,13 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    # Acceso por IP:puerto (sin dominio). Publica 8090 del host -> 80 del contenedor.
-    # Si luego se usa dominio, Traefik puede enrutar igual al puerto 80.
-    ports:
-      - "8090:80"
+    # Detrás de Traefik (Coolify). El dominio se asigna en la UI de Coolify y
+    # Traefik enruta al puerto 80 del contenedor con HTTPS automatico (443).
+    expose:
+      - "80"
     networks:
       - default
+      - coolify
 
 networks:
   coolify:
