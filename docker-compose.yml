@@ -29,6 +29,12 @@ services:
     # NO declarar 'expose: 80' aqui: el Dockerfile ya hace EXPOSE 80. Declararlo
     # en ambos lados genera puertos ambiguos ({"80","80/tcp"}) y Traefik no sabe
     # a que puerto conectar -> 504. Con un solo puerto expuesto, autodetecta 80.
+    labels:
+      # El contenedor esta en varias redes (default + coolify + <proyecto>_default).
+      # Sin fijar la red, Traefik puede resolver el backend por una IP de otra red
+      # y no entregar -> 504 intermitente tras redeploys. Forzamos la red 'coolify',
+      # que es la que el proxy Traefik comparte con este contenedor.
+      - traefik.docker.network=coolify
     networks:
       - default
       - coolify
