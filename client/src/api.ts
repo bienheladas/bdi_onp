@@ -18,6 +18,7 @@ async function req(url: string, opts: RequestInit = {}) {
 }
 export const api = {
   meta: (): Promise<Model[]> => req("/api/meta"),
+  pendientes: (): Promise<{ bd_sin_app: any[]; apps_sin_proceso: any[] }> => req("/api/pendientes"),
   one: (m: string, id: any): Promise<any> => req(`/api/${m}/${id}`),
   list: (m: string, q = "", skip = 0, take = 50): Promise<{ rows: any[]; total: number }> =>
     req(`/api/${m}?q=${encodeURIComponent(q)}&skip=${skip}&take=${take}`),

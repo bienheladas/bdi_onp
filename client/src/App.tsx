@@ -149,7 +149,7 @@ function Login({ onOk }: { onOk: () => void }) {
 function Pendientes({ models, opts, ensureOpts, go }: { models: Model[]; opts: Record<string, Opt[]>; ensureOpts: (m: string) => void; go: (m: string, id: any) => void }) {
   const [data, setData] = useState<{ bd_sin_app: any[]; apps_sin_proceso: any[] }>({ bd_sin_app: [], apps_sin_proceso: [] });
   const [rel, setRel] = useState<any | null>(null);
-  const load = () => fetch("/api/pendientes").then((r) => r.json()).then(setData);
+  const load = () => api.pendientes().then((d) => setData({ bd_sin_app: d.bd_sin_app ?? [], apps_sin_proceso: d.apps_sin_proceso ?? [] })).catch(() => {});
   useEffect(() => { load(); }, []);
   const bdModel = models.find((m) => m.name === "base_de_datos")!;
   const appModel = models.find((m) => m.name === "aplicacion")!;
