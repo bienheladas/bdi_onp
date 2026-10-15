@@ -117,10 +117,12 @@ app.get("/api/meta", (_req, res) => {
 const asLabel = (n: string, row: any) => labelOf(n).map((f) => row[f]).filter((v) => v != null).join(" · ");
 
 // ---------------- PENDIENTES (tablero de lo que falta levantar) ----------------
+// Las BD marcadas estado_bd = 'Fuera de alcance' quedan excluidas del tablero.
+const FUERA_ALCANCE = "Fuera de alcance";
 app.get("/api/pendientes", async (_req, res) => {
   try {
     const bd_sin_app = await prisma.base_de_datos.findMany({
-      where: { aplicacion_basedatos: { none: {} } },
+      where: { aplicacion_basedatos: { none: {} }, estado_bd: { not: FUERA_ALCANCE } },
       select: { id_bd: true, nombre_bd: true }, orderBy: { nombre_bd: "asc" },
     });
     const apps_sin_proceso = await prisma.aplicacion.findMany({
