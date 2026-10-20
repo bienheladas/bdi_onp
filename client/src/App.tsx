@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setKey, Model, Field, Opt, Rel } from "./api";
 
 const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio"];
 const ENT = ["servidor", "base_de_datos", "aplicacion"];
 const PAGE = 50;
+// Orden inicial de las vistas principales (el resto, por su PK); clic en un encabezado lo cambia
+const DEFAULT_SORT: Record<string, string> = { base_de_datos: "nombre_bd", servidor: "nombre_servidor", aplicacion: "id_app" };
+type Sort = { field: string; dir: "asc" | "desc" } | null;
+// Vistas con la columna "acciones" a la izquierda (primera columna); el resto la tiene al final
+const ACTS_LEFT = new Set(["base_de_datos", "aplicacion", "servidor"]);
 
 export default function App() {
   const [models, setModels] = useState<Model[]>([]);
@@ -72,11 +77,26 @@ function Grid({ model, models, opts, ensureOpts, go, pending, clearPending }: { 
   const [page, setPage] = useState(0);
   const [edit, setEdit] = useState<any | null>(null);  // registro en edición (o {} nuevo)
   const [rel, setRel] = useState<{ rel: Rel; row: any } | null>(null);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT[model.name] ? { field: DEFAULT_SORT[model.name], dir: "asc" } : null);
   const pk = model.pks[0];
   const cols = model.fields.filter((f) => f.type !== "Json" || true); // mostrar todas
+  const actsLeft = ACTS_LEFT.has(model.name);
+  const actsCell = (r: any) => (
+    <td key="__acts"><div className="acts">
+      <button className="btn xs sec" onClick={() => setEdit(r)}>editar</button>
+      <button className="btn xs danger" onClick={async () => { if (confirm("¿Eliminar registro?")) { try { await api.remove(model.name, r[pk]); load(); } catch (e: any) { alert(e.message); } } }}>borrar</button>
+      {model.relations.map((rl) => <button key={rl.key} className="btn xs" onClick={() => { ensureOpts(rl.target); setRel({ rel: rl, row: r }); }}>{rl.label}</button>)}
+    </div></td>
+  );
 
-  const load = () => api.list(model.name, q, page * PAGE, PAGE).then((d) => { setRows(d.rows); setTotal(d.total); });
-  useEffect(() => { load(); }, [model.name, page]);
+  const load = () => api.list(model.name, q, page * PAGE, PAGE, sort).then((d) => { setRows(d.rows); setTotal(d.total); });
+  useEffect(() => { load(); }, [model.name, page, sort]);
+  // clic en encabezado: asc -> desc -> asc ...; columna nueva empieza en asc y vuelve a la página 1
+  const toggleSort = (f: Field) => {
+    if (f.type === "Json") return;
+    setSort((s) => (s?.field === f.name ? { field: f.name, dir: s.dir === "asc" ? "desc" : "asc" } : { field: f.name, dir: "asc" }));
+    setPage(0);
+  };
   useEffect(() => { const t = setTimeout(() => { setPage(0); load(); }, 300); return () => clearTimeout(t); }, [q]);
   // navegación: si venimos de otro registro, abre el formulario de este
   useEffect(() => {
@@ -95,21 +115,23 @@ function Grid({ model, models, opts, ensureOpts, go, pending, clearPending }: { 
       <div className="tablewrap">
         <table>
           <thead><tr>
-            {cols.map((f) => <th key={f.name}>{f.name}</th>)}
-            <th>acciones</th>
+            {actsLeft && <th>acciones</th>}
+            {cols.map((f) => (
+              <th key={f.name} className={f.type === "Json" ? "" : "sortable"} title={f.type === "Json" ? "" : "Ordenar por esta columna"} onClick={() => toggleSort(f)}>
+                {f.name}{sort?.field === f.name && <span className="sort-ind">{sort.dir === "asc" ? " ▲" : " ▼"}</span>}
+              </th>
+            ))}
+            {!actsLeft && <th>acciones</th>}
           </tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r[pk]}>
+                {actsLeft && actsCell(r)}
                 {cols.map((f) => {
                   const txt = cell(opts, f, r[f.name]);
                   return <td key={f.name} title={txt}>{f.fk && r[f.name] != null ? <a className="lnk" onClick={() => go(f.fk!.model, r[f.name])}>{txt}</a> : txt}</td>;
                 })}
-                <td><div className="acts">
-                  <button className="btn xs sec" onClick={() => setEdit(r)}>editar</button>
-                  <button className="btn xs danger" onClick={async () => { if (confirm("¿Eliminar registro?")) { try { await api.remove(model.name, r[pk]); load(); } catch (e: any) { alert(e.message); } } }}>borrar</button>
-                  {model.relations.map((rl) => <button key={rl.key} className="btn xs" onClick={() => { ensureOpts(rl.target); setRel({ rel: rl, row: r }); }}>{rl.label}</button>)}
-                </div></td>
+                {!actsLeft && actsCell(r)}
               </tr>
             ))}
           </tbody>
@@ -251,6 +273,33 @@ function FieldInput({ f, opts, value, disabled, onChange }: { f: Field; opts: Re
   return <input type="text" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
 }
 
+// Vínculo app–BD con sus esquemas (tabla esquema): agregar/quitar esquemas y quitar el vínculo
+function PairCard({ it, title, onUnlink, onChange, setErr }: { it: any; title: ReactNode; onUnlink: () => void; onChange: () => void; setErr: (m: string) => void }) {
+  const [nombre, setNombre] = useState("");
+  const add = async () => {
+    if (!nombre.trim()) return;
+    try { await api.esqAdd(it.id_aplicacion, it.id_bd, nombre); setNombre(""); setErr(""); onChange(); } catch (e: any) { setErr(e.message); }
+  };
+  const del = async (e: any) => {
+    if (!confirm(`¿Quitar el esquema ${e.nombre_esquema}?`)) return;
+    try { await api.esqDel(it.id_aplicacion, it.id_bd, e.id_esquema); setErr(""); onChange(); } catch (x: any) { setErr(x.message); }
+  };
+  return (
+    <div className="card">
+      <div className="card-h"><b>{title}</b><button className="btn xs danger" onClick={onUnlink}>quitar vínculo</button></div>
+      <div className="chips">
+        <span className="muted">Esquemas:</span>
+        {it.esquemas.map((e: any) => <span className="chip" key={e.id_esquema}>{e.nombre_esquema}<button onClick={() => del(e)}>×</button></span>)}
+        {it.esquemas.length === 0 && <span className="muted">(sin esquemas)</span>}
+      </div>
+      <div className="card-add">
+        <input placeholder="nombre del esquema" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <button className="btn xs" onClick={add}>+ Agregar esquema</button>
+      </div>
+    </div>
+  );
+}
+
 function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose }: any) {
   const pid = row[parent.pks[0]];
   const target: Model = models.find((m: Model) => m.name === rel.target);
@@ -287,10 +336,20 @@ function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose
                 </select>
                 <button className="btn" onClick={addNM}>Asociar</button>
               </div>
-              <div className="chips">
-                {items.map((it) => <span className="chip" key={it[tgtPk]}><a className="lnk" onClick={() => go(rel.target, it[tgtPk])}>{it[tgtLabel] ?? it[tgtPk]}</a><button onClick={() => delNM(it[tgtPk])}>×</button></span>)}
-                {items.length === 0 && <span className="muted">Sin asociaciones.</span>}
-              </div>
+              {/* app–BD: cada vínculo es una tarjeta con sus esquemas; otras N:M van como chips */}
+              {items.some((it) => it.esquemas) ? (
+                <>
+                  {items.map((it) => (
+                    <PairCard key={it[tgtPk]} it={it} title={<><a className="lnk" onClick={() => go(rel.target, it[tgtPk])}>{it[tgtLabel] ?? it[tgtPk]}</a>{it.nombre_app && <span className="muted"> · {it.nombre_app}</span>}</>}
+                      onUnlink={() => delNM(it[tgtPk])} onChange={reload} setErr={setErr} />
+                  ))}
+                </>
+              ) : (
+                <div className="chips">
+                  {items.map((it) => <span className="chip" key={it[tgtPk]}><a className="lnk" onClick={() => go(rel.target, it[tgtPk])}>{it[tgtLabel] ?? it[tgtPk]}</a><button onClick={() => delNM(it[tgtPk])}>×</button></span>)}
+                </div>
+              )}
+              {items.length === 0 && <span className="muted">Sin asociaciones.</span>}
             </>
           )}
           {rel.mode === "ro" && (

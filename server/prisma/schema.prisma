@@ -57,6 +57,7 @@ model aplicacion_basedatos {
   ip_modificacion    String?       @db.VarChar(45)
   aplicacion         aplicacion    @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
   base_de_datos      base_de_datos @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  esquema            esquema[]
 
   @@id([id_aplicacion, id_bd])
 }
@@ -69,6 +70,7 @@ model aplicacion_proceso {
   ip_creacion        String?         @db.VarChar(45)
   fecha_modificacion DateTime?       @db.Timestamptz(6)
   ip_modificacion    String?         @db.VarChar(45)
+  origen             String?         @db.VarChar(10)
   aplicacion         aplicacion      @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
   proceso_negocio    proceso_negocio @relation(fields: [id_proceso], references: [id_proceso], onDelete: NoAction, onUpdate: NoAction)
 
@@ -205,4 +207,18 @@ model tipo_proceso {
   fecha_modificacion DateTime?           @db.Timestamptz(6)
   ip_modificacion    String?             @db.VarChar(45)
   dominio_funcional  dominio_funcional[]
+}
+
+model esquema {
+  id_esquema           Int                  @id @default(autoincrement())
+  id_aplicacion        Int
+  id_bd                Int
+  nombre_esquema       String               @db.VarChar(160)
+  fecha_creacion       DateTime             @default(now()) @db.Timestamptz(6)
+  ip_creacion          String?              @db.VarChar(45)
+  fecha_modificacion   DateTime?            @db.Timestamptz(6)
+  ip_modificacion      String?              @db.VarChar(45)
+  aplicacion_basedatos aplicacion_basedatos @relation(fields: [id_aplicacion, id_bd], references: [id_aplicacion, id_bd], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id_aplicacion, id_bd, nombre_esquema])
 }

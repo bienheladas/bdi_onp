@@ -20,8 +20,8 @@ export const api = {
   meta: (): Promise<Model[]> => req("/api/meta"),
   pendientes: (): Promise<{ bd_sin_app: any[]; apps_sin_proceso: any[] }> => req("/api/pendientes"),
   one: (m: string, id: any): Promise<any> => req(`/api/${m}/${id}`),
-  list: (m: string, q = "", skip = 0, take = 50): Promise<{ rows: any[]; total: number }> =>
-    req(`/api/${m}?q=${encodeURIComponent(q)}&skip=${skip}&take=${take}`),
+  list: (m: string, q = "", skip = 0, take = 50, sort?: { field: string; dir: "asc" | "desc" } | null): Promise<{ rows: any[]; total: number }> =>
+    req(`/api/${m}?q=${encodeURIComponent(q)}&skip=${skip}&take=${take}${sort ? `&sort=${sort.field}&dir=${sort.dir}` : ""}`),
   options: (m: string): Promise<Opt[]> => req(`/api/${m}/options`),
   create: (m: string, body: any) => req(`/api/${m}`, { method: "POST", body: JSON.stringify(body) }),
   update: (m: string, id: any, body: any) => req(`/api/${m}/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -30,4 +30,6 @@ export const api = {
   relAdd: (parent: string, id: any, key: string, body: any) => req(`/api/${parent}/${id}/${key}`, { method: "POST", body: JSON.stringify(body) }),
   relDel: (parent: string, id: any, key: string, childId: any) => req(`/api/${parent}/${id}/${key}/${childId}`, { method: "DELETE" }),
   relUpd: (parent: string, id: any, key: string, childId: any, body: any) => req(`/api/${parent}/${id}/${key}/${childId}`, { method: "PUT", body: JSON.stringify(body) }),
+  esqAdd: (idApp: any, idBd: any, nombre_esquema: string) => req(`/api/aplicacion/${idApp}/basedatos/${idBd}/esquemas`, { method: "POST", body: JSON.stringify({ nombre_esquema }) }),
+  esqDel: (idApp: any, idBd: any, idEsq: any) => req(`/api/aplicacion/${idApp}/basedatos/${idBd}/esquemas/${idEsq}`, { method: "DELETE" }),
 };

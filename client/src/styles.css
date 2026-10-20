@@ -27,6 +27,9 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:var(--blu
 table { border-collapse:collapse; width:100%; white-space:nowrap; }
 th, td { padding:7px 10px; border-bottom:1px solid #eef0f4; text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; }
 th { background:var(--navy); color:#fff; position:sticky; top:0; font-weight:600; font-size:12.5px; }
+th.sortable { cursor:pointer; user-select:none; }
+th.sortable:hover { background:var(--blue); }
+.sort-ind { font-size:10px; }
 tr:nth-child(even) td { background:#f7f9fc; }
 tr:hover td { background:var(--light); }
 .acts { display:flex; gap:6px; }
@@ -47,5 +50,9 @@ tr:hover td { background:var(--light); }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip { background:var(--grey); border:1px solid var(--line); border-radius:14px; padding:3px 6px 3px 10px; display:flex; align-items:center; gap:6px; }
 .chip button { border:none; background:#c0392b; color:#fff; border-radius:50%; width:18px; height:18px; cursor:pointer; line-height:1; }
+.card { border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:10px; background:#fbfcfe; }
+.card-h { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.card-add { display:flex; gap:8px; margin-top:8px; }
+.card-add input { flex:0 1 280px; padding:4px 8px; }
 .lnk { color:var(--blue); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; }
 .lnk:hover { color:var(--navy); text-decoration-style:solid; }
