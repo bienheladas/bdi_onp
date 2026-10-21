@@ -195,8 +195,22 @@ app.get("/api/:model/options", async (req, res) => {
   try {
     const m = modelByName(req.params.model);
     if (!m) return res.status(404).json({ error: "modelo no disponible" });
-    const rows = await delegate(m.name).findMany({ take: 2000 });
     const pk = pkFields(m)[0];
+    // base_de_datos: no ofrecer las 'Fuera de alcance' y desambiguar nombres repetidos
+    // mostrando el servidor (evita re-enlazar la copia equivocada desde los modales).
+    if (m.name === "base_de_datos") {
+      const rows = await prisma.base_de_datos.findMany({
+        where: { OR: [{ estado_bd: null }, { estado_bd: { not: FUERA_ALCANCE } }] },
+        include: { servidor: true }, take: 2000,
+      });
+      const seen = new Set<string>(), dup = new Set<string>();
+      for (const r of rows) { if (seen.has(r.nombre_bd)) dup.add(r.nombre_bd); else seen.add(r.nombre_bd); }
+      return res.json(rows.map((r: any) => ({
+        value: r[pk],
+        label: dup.has(r.nombre_bd) ? `${r.nombre_bd} @ ${r.servidor?.nombre_servidor ?? "?"}` : r.nombre_bd,
+      })).sort((a: any, b: any) => collator.compare(a.label, b.label)));
+    }
+    const rows = await delegate(m.name).findMany({ take: 2000 });
     res.json(rows.map((r: any) => ({ value: r[pk], label: asLabel(m.name, r) || String(r[pk]) })).sort((a: any, b: any) => collator.compare(a.label, b.label)));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
