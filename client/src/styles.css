@@ -23,7 +23,7 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:var(--blu
 .btn.xs { padding:3px 8px; font-size:12px; font-weight:500; }
 .search { flex:0 0 260px; }
 /* table */
-.tablewrap { overflow:auto; background:#fff; border:1px solid var(--line); border-radius:8px; }
+.tablewrap { overflow:auto; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:calc(100vh - 170px); }
 table { border-collapse:collapse; width:100%; white-space:nowrap; }
 th, td { padding:7px 10px; border-bottom:1px solid #eef0f4; text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; }
 th { background:var(--navy); color:#fff; position:sticky; top:0; font-weight:600; font-size:12.5px; }
@@ -33,6 +33,8 @@ th.sortable:hover { background:var(--blue); }
 tr:nth-child(even) td { background:#f7f9fc; }
 tr:hover td { background:var(--light); }
 .acts { display:flex; gap:6px; }
+.btn.ico { padding:4px 7px; line-height:0; }
+.btn.ico svg { display:block; }
 .pager { display:flex; align-items:center; gap:10px; margin-top:12px; }
 .muted { color:#7a8699; }
 .pill { background:var(--light); color:var(--navy); border-radius:10px; padding:1px 8px; font-size:12px; }
