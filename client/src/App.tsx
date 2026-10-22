@@ -80,8 +80,9 @@ const ICO: Record<string, any> = {
   proc: <><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></>,
   app: <><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" /></>,
   link: <><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></>,
+  org: <><path d="M3 21h18M6 21V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16" /><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2" /></>,
 };
-const relIco: Record<string, string> = { basedatos: "db", procesos: "proc", aplicaciones: "app", integraciones: "link" };
+const relIco: Record<string, string> = { basedatos: "db", procesos: "proc", aplicaciones: "app", integraciones: "link", areas: "org" };
 const Ico = ({ n }: { n: string }) => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{ICO[n]}</svg>
 );
@@ -338,7 +339,7 @@ function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose
   const reload = () => api.relList(parent.name, pid, rel.key).then(setItems).catch((e) => setErr(e.message));
   useEffect(() => { reload(); if (rel.mode !== "child") ensureOpts(rel.target); else ensureOpts("base_de_datos"); }, []);
 
-  const addNM = async () => { if (!sel) return; try { await api.relAdd(parent.name, pid, rel.key, { [tgtPk]: Number(sel) }); setSel(""); reload(); } catch (e: any) { setErr(e.message); } };
+  const addNM = async () => { if (!sel) return; try { await api.relAdd(parent.name, pid, rel.key, { [tgtPk]: sel }); setSel(""); reload(); } catch (e: any) { setErr(e.message); } };
   const delNM = async (cid: any) => { try { await api.relDel(parent.name, pid, rel.key, cid); reload(); } catch (e: any) { setErr(e.message); } };
   const addIntg = async () => {
     try { await api.relAdd(parent.name, pid, rel.key, { ...intg, id_bd_destino: intg.id_bd_destino || null }); setIntg({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", esquema_owner: "", estado_enlace: "" }); reload(); }

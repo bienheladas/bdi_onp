@@ -39,6 +39,7 @@ const REL: Record<string, any[]> = {
   aplicacion: [
     { key: "basedatos", label: "Bases de datos", mode: "nm", target: "base_de_datos" },
     { key: "procesos", label: "Procesos", mode: "nm", target: "proceso_negocio" },
+    { key: "areas", label: "Áreas propietarias", mode: "nm", target: "oficina" },
   ],
   base_de_datos: [
     { key: "aplicaciones", label: "Aplicaciones", mode: "nm", target: "aplicacion" },
@@ -324,6 +325,28 @@ app.post("/api/aplicacion/:id/procesos", async (req, res) => {
 app.delete("/api/aplicacion/:id/procesos/:id_proceso", async (req, res) => {
   try { await prisma.aplicacion_proceso.delete({ where: { id_aplicacion_id_proceso: { id_aplicacion: +req.params.id, id_proceso: +req.params.id_proceso } } }); res.json({ ok: true }); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+// aplicacion <-> oficina (aplicacion_area: áreas propietarias N:M). Tabla fuera de Prisma => raw.
+app.get("/api/aplicacion/:id/areas", async (req, res) => {
+  try {
+    const rows = await prisma.$queryRaw<{ sigla: string; nombre_vigente: string }[]>`
+      select o.sigla, o.nombre_vigente from aplicacion_area aa join oficina o on o.sigla=aa.sigla
+      where aa.id_aplicacion=${+req.params.id} order by o.sigla`;
+    res.json(rows);
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+app.post("/api/aplicacion/:id/areas", async (req, res) => {
+  try {
+    await prisma.$executeRaw`insert into aplicacion_area(id_aplicacion, sigla)
+      values(${+req.params.id}, ${String(req.body.sigla)}) on conflict do nothing`;
+    res.json({ ok: true });
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+app.delete("/api/aplicacion/:id/areas/:sigla", async (req, res) => {
+  try {
+    await prisma.$executeRaw`delete from aplicacion_area where id_aplicacion=${+req.params.id} and sigla=${req.params.sigla}`;
+    res.json({ ok: true });
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // base_de_datos -> aplicaciones (solo lectura)
 app.get("/api/base_de_datos/:id/aplicaciones", async (req, res) => {
