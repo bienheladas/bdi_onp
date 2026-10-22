@@ -222,3 +222,13 @@ model esquema {
 
   @@unique([id_aplicacion, id_bd, nombre_esquema])
 }
+
+model oficina {
+  sigla          String    @id @db.VarChar(20)
+  nombre_vigente String    @db.VarChar(180)
+  tipo_unidad    String?   @db.VarChar(60)
+  sigla_padre    String?   @db.VarChar(20)
+  fecha_creacion DateTime  @default(now()) @db.Timestamptz(6)
+  padre          oficina?  @relation("jerarquia_oficina", fields: [sigla_padre], references: [sigla], onDelete: NoAction, onUpdate: NoAction)
+  hijos          oficina[] @relation("jerarquia_oficina")
+}

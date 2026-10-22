@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setKey, Model, Field, Opt, Rel } from "./api";
 
-const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio"];
+const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio", "oficina"];
 const ENT = ["servidor", "base_de_datos", "aplicacion"];
 const PAGE = 50;
 // Orden inicial de las vistas principales (el resto, por su PK); clic en un encabezado lo cambia
