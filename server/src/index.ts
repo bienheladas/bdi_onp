@@ -29,6 +29,10 @@ const LABELS: Record<string, string[]> = {
   dominio_funcional: ["desc_dominio"], proceso_negocio: ["desc_proceso"],
   servidor: ["nombre_servidor"], base_de_datos: ["nombre_bd"], aplicacion: ["id_app", "nombre_app"],
 };
+// Campos de texto respaldados por un catálogo => en la web se pintan como dropdown (no texto libre).
+const CATALOG_FIELDS: Record<string, Record<string, string>> = {
+  aplicacion: { area_usuaria_resp: "oficina", unidad_jerarquica: "oficina" },
+};
 // Relaciones gestionables en modales, por entidad padre
 const REL: Record<string, any[]> = {
   aplicacion: [
@@ -73,6 +77,7 @@ function scalarMeta(m: any) {
       required: f.isRequired && !f.hasDefaultValue,
       auto: AUDIT.has(f.name),            // auditoría: no editable (la pone el servidor)
       fk: fk[f.name] || null,
+      catalog: CATALOG_FIELDS[m.name]?.[f.name] || null,   // dropdown desde catálogo (p.ej. oficina)
     }));
   return { pks, fields };
 }
@@ -150,6 +155,16 @@ app.get("/api/pendientes", async (_req, res) => {
       select: { id: true, id_app: true, nombre_app: true }, orderBy: { id_app: "asc" },
     });
     res.json({ bd_sin_app, apps_sin_proceso });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ---------------- Catálogo de áreas/unidades (oficina) para dropdowns ----------------
+// 'oficina' no está en el cliente Prisma (tabla creada aparte) => consulta cruda.
+app.get("/api/oficinas", async (_req, res) => {
+  try {
+    const rows = await prisma.$queryRaw<{ sigla: string; nombre_vigente: string }[]>`
+      select sigla, nombre_vigente from oficina order by sigla`;
+    res.json(rows.map((r) => ({ value: r.sigla, label: `${r.sigla} · ${r.nombre_vigente}` })));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

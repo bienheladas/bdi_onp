@@ -26,6 +26,9 @@ export default function App() {
     const need = new Set<string>();
     model.fields.forEach((f) => f.fk && need.add(f.fk.model));
     need.forEach((mn) => { if (!opts[mn]) api.options(mn).then((o) => setOpts((p) => ({ ...p, [mn]: o }))); });
+    // catálogos de texto (p.ej. oficina) => endpoint dedicado
+    if (model.fields.some((f) => f.catalog === "oficina") && !opts["oficina"])
+      api.oficinas().then((o) => setOpts((p) => ({ ...p, oficina: o })));
   }, [model]);
 
   const ensureOpts = (mn: string) => { if (!opts[mn]) api.options(mn).then((o) => setOpts((p) => ({ ...p, [mn]: o }))); };
@@ -261,6 +264,15 @@ function FieldInput({ f, opts, value, disabled, onChange }: { f: Field; opts: Re
     const o = opts[f.fk.model] || [];
     return (
       <select value={value ?? ""} disabled={disabled} onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))}>
+        <option value="">— (ninguno)</option>
+        {o.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+      </select>
+    );
+  }
+  if (f.catalog) {
+    const o = opts[f.catalog] || [];
+    return (
+      <select value={value ?? ""} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
         <option value="">— (ninguno)</option>
         {o.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
       </select>

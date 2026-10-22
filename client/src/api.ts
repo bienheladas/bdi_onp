@@ -1,6 +1,7 @@
 export type Field = {
   name: string; type: string; isPk: boolean; hasDefault: boolean; required: boolean; auto?: boolean;
   fk: { model: string; toField: string; label: string[] } | null;
+  catalog?: string | null;   // si está, el campo se edita como dropdown desde ese catálogo (p.ej. "oficina")
 };
 export type Rel = { key: string; label: string; mode: "nm" | "ro" | "child"; target: string };
 export type Model = { name: string; label: string; pks: string[]; labelFields: string[]; fields: Field[]; relations: Rel[] };
@@ -23,6 +24,7 @@ export const api = {
   list: (m: string, q = "", skip = 0, take = 50, sort?: { field: string; dir: "asc" | "desc" } | null): Promise<{ rows: any[]; total: number }> =>
     req(`/api/${m}?q=${encodeURIComponent(q)}&skip=${skip}&take=${take}${sort ? `&sort=${sort.field}&dir=${sort.dir}` : ""}`),
   options: (m: string): Promise<Opt[]> => req(`/api/${m}/options`),
+  oficinas: (): Promise<Opt[]> => req("/api/oficinas"),
   create: (m: string, body: any) => req(`/api/${m}`, { method: "POST", body: JSON.stringify(body) }),
   update: (m: string, id: any, body: any) => req(`/api/${m}/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (m: string, id: any) => req(`/api/${m}/${id}`, { method: "DELETE" }),
