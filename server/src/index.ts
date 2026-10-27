@@ -17,7 +17,7 @@ app.use("/api", (req, res, next) => {
 });
 
 // Tablas de relación: NO son secciones propias; se gestionan como modales desde los padres.
-const HIDDEN = new Set(["aplicacion_basedatos", "aplicacion_proceso", "integraciones", "esquema"]);
+const HIDDEN = new Set(["aplicacion_basedatos", "aplicacion_proceso", "integraciones", "esquema", "esquema_aplicacion", "tabla", "columna"]);
 // Campos que no se muestran en la web (siguen en la BD). Los JSON de aplicacion son la
 // versión antigua de los esquemas: la fuente ahora es la tabla esquema (por par app–BD).
 const HIDDEN_FIELDS: Record<string, Set<string>> = {
@@ -272,11 +272,20 @@ app.delete("/api/:model/:id", async (req, res) => {
 });
 
 // ---------------- Relaciones (modales desde padres) ----------------
-// Esquemas de un par app–BD, ordenados por nombre
-const esquemasInclude = { esquema: { select: { id_esquema: true, nombre_esquema: true }, orderBy: { nombre_esquema: "asc" as const } } };
-// Quitar un vínculo app–BD: se bloquea si el par tiene esquemas (no se borran en cascada)
+// Esquemas de un par app–BD (via junction esquema_aplicacion -> esquema maestro), ordenados por nombre
+const esquemasInclude = {
+  esquema_aplicacion: {
+    select: { id_esquema_aplicacion: true, esquema: { select: { id_esquema: true, nombre_esquema: true } } },
+    orderBy: { esquema: { nombre_esquema: "asc" as const } },
+  },
+};
+// Aplana el include a [{ id_esquema, nombre_esquema, id_esquema_aplicacion }]
+const mapEsq = (l: any) => l.esquema_aplicacion.map((x: any) => ({
+  id_esquema: x.esquema.id_esquema, nombre_esquema: x.esquema.nombre_esquema, id_esquema_aplicacion: x.id_esquema_aplicacion,
+}));
+// Quitar un vínculo app–BD: se bloquea si el par tiene esquemas enlazados (no se borran en cascada)
 async function delAppBd(id_aplicacion: number, id_bd: number) {
-  const n = await prisma.esquema.count({ where: { id_aplicacion, id_bd } });
+  const n = await prisma.esquema_aplicacion.count({ where: { id_aplicacion, id_bd } });
   if (n > 0) throw new Error(`Este vínculo tiene ${n} esquema(s) registrado(s); quítalos primero.`);
   await prisma.aplicacion_basedatos.delete({ where: { id_aplicacion_id_bd: { id_aplicacion, id_bd } } });
 }
@@ -284,7 +293,7 @@ async function delAppBd(id_aplicacion: number, id_bd: number) {
 app.get("/api/aplicacion/:id/basedatos", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const links = await prisma.aplicacion_basedatos.findMany({ where: { id_aplicacion: id }, include: { base_de_datos: true, ...esquemasInclude }, orderBy: { base_de_datos: { nombre_bd: "asc" } } });
-  res.json(links.map((l) => ({ id_aplicacion: l.id_aplicacion, id_bd: l.id_bd, nombre_bd: l.base_de_datos.nombre_bd, esquemas: l.esquema })));
+  res.json(links.map((l) => ({ id_aplicacion: l.id_aplicacion, id_bd: l.id_bd, nombre_bd: l.base_de_datos.nombre_bd, esquemas: mapEsq(l) })));
 });
 app.post("/api/aplicacion/:id/basedatos", async (req, res) => {
   try { await prisma.aplicacion_basedatos.create({ data: { id_aplicacion: +req.params.id, id_bd: +req.body.id_bd, ip_creacion: clientIp(req) } }); res.json({ ok: true }); }
@@ -294,13 +303,22 @@ app.delete("/api/aplicacion/:id/basedatos/:id_bd", async (req, res) => {
   try { await delAppBd(+req.params.id, +req.params.id_bd); res.json({ ok: true }); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
-// esquemas de un par app–BD (esquema). Se usan desde ambos modales (app y BD).
+// esquemas de un par app–BD. El esquema fisico vive en el maestro 'esquema' (por BD);
+// aqui se crea/borra el VINCULO app<->esquema en la junction 'esquema_aplicacion'.
 app.post("/api/aplicacion/:id/basedatos/:id_bd/esquemas", async (req, res) => {
   try {
     const nombre = String(req.body.nombre_esquema || "").trim();
     if (!nombre) return res.status(400).json({ error: "Indica el nombre del esquema." });
-    const row = await prisma.esquema.create({ data: { id_aplicacion: +req.params.id, id_bd: +req.params.id_bd, nombre_esquema: nombre, ip_creacion: clientIp(req) } });
-    res.json(row);
+    const id_aplicacion = +req.params.id, id_bd = +req.params.id_bd, ip = clientIp(req);
+    // maestro: buscar o crear el esquema fisico (id_bd, nombre)
+    const esq = await prisma.esquema.upsert({
+      where: { id_bd_nombre_esquema: { id_bd, nombre_esquema: nombre } },
+      update: {},
+      create: { id_bd, nombre_esquema: nombre },
+    });
+    // junction: enlazar la app con ese esquema
+    const row = await prisma.esquema_aplicacion.create({ data: { id_aplicacion, id_bd, id_esquema: esq.id_esquema, ip_creacion: ip } });
+    res.json({ id_esquema: esq.id_esquema, nombre_esquema: nombre, id_esquema_aplicacion: row.id_esquema_aplicacion });
   } catch (e: any) {
     if (e.code === "P2002") return res.status(400).json({ error: `El esquema "${String(req.body.nombre_esquema).trim()}" ya está registrado para esta app y BD.` });
     res.status(400).json({ error: e.message });
@@ -308,7 +326,8 @@ app.post("/api/aplicacion/:id/basedatos/:id_bd/esquemas", async (req, res) => {
 });
 app.delete("/api/aplicacion/:id/basedatos/:id_bd/esquemas/:id_esquema", async (req, res) => {
   try {
-    const { count } = await prisma.esquema.deleteMany({ where: { id_esquema: +req.params.id_esquema, id_aplicacion: +req.params.id, id_bd: +req.params.id_bd } });
+    // borra el VINCULO en la junction (no el esquema fisico maestro)
+    const { count } = await prisma.esquema_aplicacion.deleteMany({ where: { id_esquema: +req.params.id_esquema, id_aplicacion: +req.params.id, id_bd: +req.params.id_bd } });
     if (!count) return res.status(404).json({ error: "Esquema no encontrado." });
     res.json({ ok: true });
   } catch (e: any) { res.status(400).json({ error: e.message }); }
@@ -351,7 +370,7 @@ app.delete("/api/aplicacion/:id/areas/:sigla", async (req, res) => {
 // base_de_datos -> aplicaciones (solo lectura)
 app.get("/api/base_de_datos/:id/aplicaciones", async (req, res) => {
   const links = await prisma.aplicacion_basedatos.findMany({ where: { id_bd: +req.params.id }, include: { aplicacion: true, ...esquemasInclude }, orderBy: { aplicacion: { id_app: "asc" } } });
-  res.json(links.map((l) => ({ id: l.id_aplicacion, id_aplicacion: l.id_aplicacion, id_bd: l.id_bd, id_app: l.aplicacion.id_app, nombre_app: l.aplicacion.nombre_app, esquemas: l.esquema })));
+  res.json(links.map((l) => ({ id: l.id_aplicacion, id_aplicacion: l.id_aplicacion, id_bd: l.id_bd, id_app: l.aplicacion.id_app, nombre_app: l.aplicacion.nombre_app, esquemas: mapEsq(l) })));
 });
 app.post("/api/base_de_datos/:id/aplicaciones", async (req, res) => {
   try { await prisma.aplicacion_basedatos.create({ data: { id_bd: +req.params.id, id_aplicacion: +req.body.id, ip_creacion: clientIp(req) } }); res.json({ ok: true }); }

@@ -55,9 +55,9 @@ model aplicacion_basedatos {
   ip_creacion        String?       @db.VarChar(45)
   fecha_modificacion DateTime?     @db.Timestamptz(6)
   ip_modificacion    String?       @db.VarChar(45)
-  aplicacion         aplicacion    @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  base_de_datos      base_de_datos @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
-  esquema            esquema[]
+  aplicacion         aplicacion           @relation(fields: [id_aplicacion], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  base_de_datos      base_de_datos        @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  esquema_aplicacion esquema_aplicacion[]
 
   @@id([id_aplicacion, id_bd])
 }
@@ -105,6 +105,7 @@ model base_de_datos {
   ip_modificacion                                          String?                @db.VarChar(45)
   observaciones                                            String?
   aplicacion_basedatos                                     aplicacion_basedatos[]
+  esquema                                                  esquema[]
   ambiente                                                 ambiente?              @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)
   motor_bd                                                 motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
   servidor                                                 servidor?              @relation(fields: [id_servidor], references: [id_servidor], onDelete: NoAction, onUpdate: NoAction)
@@ -209,18 +210,71 @@ model tipo_proceso {
   dominio_funcional  dominio_funcional[]
 }
 
+// Maestro de esquemas fisicos (1 por BD+owner), poblado del catalogo Oracle.
 model esquema {
-  id_esquema           Int                  @id @default(autoincrement())
-  id_aplicacion        Int
-  id_bd                Int
-  nombre_esquema       String               @db.VarChar(160)
-  fecha_creacion       DateTime             @default(now()) @db.Timestamptz(6)
-  ip_creacion          String?              @db.VarChar(45)
-  fecha_modificacion   DateTime?            @db.Timestamptz(6)
-  ip_modificacion      String?              @db.VarChar(45)
-  aplicacion_basedatos aplicacion_basedatos @relation(fields: [id_aplicacion, id_bd], references: [id_aplicacion, id_bd], onDelete: NoAction, onUpdate: NoAction)
+  id_esquema         Int                  @id @default(autoincrement())
+  id_bd              Int
+  nombre_esquema     String               @db.VarChar(160)
+  fecha_creacion     DateTime             @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?              @db.VarChar(45)
+  fecha_modificacion DateTime?            @db.Timestamptz(6)
+  ip_modificacion    String?              @db.VarChar(45)
+  base_de_datos      base_de_datos        @relation(fields: [id_bd], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  tabla              tabla[]
+  esquema_aplicacion esquema_aplicacion[]
 
-  @@unique([id_aplicacion, id_bd, nombre_esquema])
+  @@unique([id_bd, nombre_esquema])
+}
+
+// Junction app <-> esquema fisico (antes era la tabla 'esquema', app-scoped).
+model esquema_aplicacion {
+  id_esquema_aplicacion Int                  @id @default(autoincrement())
+  id_aplicacion         Int
+  id_bd                 Int
+  id_esquema            Int
+  fecha_creacion        DateTime             @default(now()) @db.Timestamptz(6)
+  ip_creacion           String?              @db.VarChar(45)
+  fecha_modificacion    DateTime?            @db.Timestamptz(6)
+  ip_modificacion       String?              @db.VarChar(45)
+  aplicacion_basedatos  aplicacion_basedatos @relation(fields: [id_aplicacion, id_bd], references: [id_aplicacion, id_bd], onDelete: NoAction, onUpdate: NoAction)
+  esquema               esquema              @relation(fields: [id_esquema], references: [id_esquema], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id_aplicacion, id_esquema])
+}
+
+// Tabla fisica (hija de esquema)
+model tabla {
+  id_tabla           Int       @id @default(autoincrement())
+  id_esquema         Int
+  nombre_tabla       String    @db.VarChar(200)
+  fecha_creacion     DateTime  @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?   @db.VarChar(45)
+  fecha_modificacion DateTime? @db.Timestamptz(6)
+  ip_modificacion    String?   @db.VarChar(45)
+  esquema            esquema   @relation(fields: [id_esquema], references: [id_esquema], onDelete: NoAction, onUpdate: NoAction)
+  columna            columna[]
+
+  @@unique([id_esquema, nombre_tabla])
+}
+
+// Columna fisica (hija de tabla)
+model columna {
+  id_columna         Int       @id @default(autoincrement())
+  id_tabla           Int
+  col_id             Int?
+  nombre_columna     String    @db.VarChar(200)
+  tipo               String?   @db.VarChar(60)
+  longitud           String?   @db.VarChar(40)
+  nullable           String?   @db.VarChar(4)
+  es_pk              String?   @db.VarChar(4)
+  comentario         String?
+  fecha_creacion     DateTime  @default(now()) @db.Timestamptz(6)
+  ip_creacion        String?   @db.VarChar(45)
+  fecha_modificacion DateTime? @db.Timestamptz(6)
+  ip_modificacion    String?   @db.VarChar(45)
+  tabla              tabla     @relation(fields: [id_tabla], references: [id_tabla], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id_tabla, nombre_columna])
 }
 
 model oficina {
