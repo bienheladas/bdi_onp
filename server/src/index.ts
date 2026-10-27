@@ -21,7 +21,7 @@ const HIDDEN = new Set(["aplicacion_basedatos", "aplicacion_proceso", "integraci
 // Campos que no se muestran en la web (siguen en la BD). Los JSON de aplicacion son la
 // versión antigua de los esquemas: la fuente ahora es la tabla esquema (por par app–BD).
 const HIDDEN_FIELDS: Record<string, Set<string>> = {
-  aplicacion: new Set(["nombre_esquema_bd"]),
+  aplicacion: new Set(["nombre_esquema_bd", "area_usuaria_resp"]),
 };
 // Campo(s) descriptivos para mostrar en dropdowns/listas
 const LABELS: Record<string, string[]> = {
