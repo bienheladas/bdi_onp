@@ -26,9 +26,6 @@ model aplicacion {
   abreviatura_app      String?                @db.VarChar(80)
   nombre_app           String?                @db.VarChar(250)
   desc_app             String?
-  id_motor_bd          Int?
-  version              String?                @db.VarChar(80)
-  instancia_bd         Json?
   nombre_esquema_bd    Json?
   estado_app           String?                @db.VarChar(40)
   nombre_lider_usuario String?
@@ -42,7 +39,6 @@ model aplicacion {
   fecha_modificacion   DateTime?              @db.Timestamptz(6)
   ip_modificacion      String?                @db.VarChar(45)
   observaciones        String?
-  motor_bd             motor_bd?              @relation(fields: [id_motor_bd], references: [id_motor_bd], onDelete: NoAction, onUpdate: NoAction)
   aplicacion_basedatos aplicacion_basedatos[]
   aplicacion_proceso   aplicacion_proceso[]
 }
@@ -152,7 +148,6 @@ model motor_bd {
   ip_creacion        String?         @db.VarChar(45)
   fecha_modificacion DateTime?       @db.Timestamptz(6)
   ip_modificacion    String?         @db.VarChar(45)
-  aplicacion         aplicacion[]
   base_de_datos      base_de_datos[]
   servidor           servidor[]
 }
