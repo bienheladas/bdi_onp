@@ -237,23 +237,24 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-07": {
     titulo: "Matriz de Volumetría y Criticidad de Fuentes de Datos (en vivo)",
-    columns: ["ID", "Datacenter", "Servidor", "Sistema operativo", "vCPU (cores)", "Memoria (GB)",
-      "Disco asignado (GB)", "Disco utilizado (GB)", "% ocupación de disco", "% CPU promedio", "% Memoria promedio",
-      "Fuente / BD", "Motor y versión", "Ambiente", "Tamaño (GB)", "N° esquemas", "N° tablas",
-      "Crecimiento (GB/mes)", "Criticidad", "Dependencia operativa", "Observaciones de almacenamiento / criticidad"],
+    columns: ["ID", "Fuente / BD", "Motor y versión", "Edición", "Ambiente", "Charset",
+      "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
+      "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
+      "Crecimiento (GB/mes)", "TDE", "Fecha volumetría",
+      "Servidor", "Disco asignado (GB)", "Disco utilizado (GB)", "% ocupación de disco"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
-        s.ubicacion as "Datacenter", s.nombre_servidor as "Servidor",
-        (coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')) as "Sistema operativo",
-        s.nro_cores as "vCPU (cores)", s.memoria_gb as "Memoria (GB)",
-        s.disco_asignado_gb as "Disco asignado (GB)", s.disco_utilizado_gb as "Disco utilizado (GB)",
-        case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% ocupación de disco",
-        s.porc_uso_cpu_prom as "% CPU promedio", s.porc_uso_mem_prom as "% Memoria promedio",
         b.nombre_bd as "Fuente / BD", (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
-        a.desc_ambiente as "Ambiente", b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas",
-        b.nro_tablas as "N° tablas", b.crecimiento_gb as "Crecimiento (GB/mes)",
-        '' as "Criticidad", '' as "Dependencia operativa", b.observaciones as "Observaciones de almacenamiento / criticidad"
+        b.edicion as "Edición", a.desc_ambiente as "Ambiente", b.charset as "Charset",
+        b.tamano_gb as "Tamaño total (GB)", b.tamano_datos_gb as "Datos (GB)", b.tamano_indices_gb as "Índices (GB)",
+        b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas", b.nro_indices as "N° índices",
+        b.nro_vistas as "N° vistas", b.nro_procedimientos as "N° procedimientos", b.nro_triggers as "N° triggers",
+        b.tabla_mas_grande as "Tabla más grande", b.tabla_mas_grande_gb as "Tabla más grande (GB)",
+        b.crecimiento_gb as "Crecimiento (GB/mes)", b.tde_estado as "TDE", b.fec_volumetria::text as "Fecha volumetría",
+        s.nombre_servidor as "Servidor", s.disco_asignado_gb as "Disco asignado (GB)",
+        s.disco_utilizado_gb as "Disco utilizado (GB)",
+        case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% ocupación de disco"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
