@@ -177,7 +177,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   "ADI-05": {
     titulo: "Mapa de Relaciones e Integraciones entre Fuentes de Datos (en vivo)",
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
-      "Mecanismo", "Nombre del enlace / job", "Esquema / owner", "Visibilidad", "Tabla(s) destino", "Modo de carga",
+      "Mecanismo", "Nombre del enlace / job", "Esquema / owner", "Visibilidad", "Usuario remoto (DB Link)",
+      "Riesgo del enlace", "Tabla(s) destino", "Modo de carga",
       "Objetivo / propósito", "Proveedor", "Estado"],
     sql: `
       select
@@ -190,6 +191,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         i.nombre_enlace as "Nombre del enlace / job",
         i.esquema_owner as "Esquema / owner",
         case when i.mecanismo <> 'DB Link' then '' when upper(coalesce(i.esquema_owner,''))='PUBLIC' then 'Público' else 'Privado' end as "Visibilidad",
+        (select dl.usuario_remoto from db_link_catalogo dl where dl.id_bd_origen=i.id_bd_origen and upper(dl.db_link)=upper(i.nombre_enlace)
+           order by case dl.nivel_riesgo when 'Critico' then 1 when 'Alto' then 2 when 'Medio' then 3 else 4 end limit 1) as "Usuario remoto (DB Link)",
+        (select dl.nivel_riesgo from db_link_catalogo dl where dl.id_bd_origen=i.id_bd_origen and upper(dl.db_link)=upper(i.nombre_enlace)
+           order by case dl.nivel_riesgo when 'Critico' then 1 when 'Alto' then 2 when 'Medio' then 3 else 4 end limit 1) as "Riesgo del enlace",
         d.tabla_destino as "Tabla(s) destino",
         d.modo_carga as "Modo de carga",
         d.objetivo as "Objetivo / propósito",
@@ -364,9 +369,22 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         'Revisar uso real de features Enterprise; consolidar y optar por Standard donde aplique'
       union all
       select 7, 'Seguridad de integraciones', 'DB Links públicos (acoplamiento no controlado)', 'Alta',
-        (select count(*) from integraciones where mecanismo='DB Link' and upper(coalesce(esquema_owner,''))='PUBLIC')::text||' DB Links públicos (de 134)',
+        (select count(*) from db_link_catalogo where es_publico)::text||' DB Links públicos (de '||(select count(*) from db_link_catalogo)::text||' reales, 23 instancias)',
         'Links PUBLIC usables por cualquier esquema; credenciales embebidas → acceso cruzado/lateral',
         'Convertir a privados por esquema; inventariar consumidores antes de dar de baja BD'
+      union all
+      select 8, 'Seguridad de integraciones', 'DB Links de alto riesgo (público + usuario remoto privilegiado)', 'Crítica',
+        (select count(*) from db_link_catalogo where nivel_riesgo='Critico')::text||' DB Links críticos; '||
+        (select count(*) from db_link_catalogo where usuario_remoto_privilegiado)::text||' con usuario remoto DBA/ANY',
+        'Links PUBLIC cuyo usuario remoto tiene DBA/privilegios ANY en el destino (ej. SNPCONNECT entrelaza EMI18/19/20↔NSP18/20; USUA_DBL_BDI_SGPSYS→BDPRD11G) → acceso privilegiado lateral',
+        'Reemplazar por usuarios remotos de mínimo privilegio y hacer privados los links; rotar credenciales embebidas'
+      union all
+      select 9, 'Seguridad de cuentas', 'Cuentas con contraseña por defecto', 'Baja',
+        (select count(*) from usuario_bd where pwd_default)::text||' cuentas con pwd de fábrica; '||
+        (select count(*) from usuario_bd where pwd_default and estado_cuenta like '%LOCKED%')::text||' bloqueadas/expiradas, '||
+        (select count(*) from usuario_bd where pwd_default and estado_cuenta='OPEN')::text||' ABIERTA',
+        'DBA_USERS_WITH_DEFPWD: casi todas son cuentas de muestra/sistema ya bloqueadas; única ABIERTA = PERFSTAT@EMI18PRD (Statspack)',
+        'Cambiar/eliminar la cuenta abierta (PERFSTAT); dar de baja cuentas de muestra no usadas como hardening'
       order by ord
     `,
   },
