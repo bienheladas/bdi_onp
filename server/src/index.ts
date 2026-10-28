@@ -288,23 +288,23 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-09": {
     titulo: "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos (en vivo)",
-    columns: ["N°", "Proceso de negocio / componente SIIP", "Dominio funcional", "Entidades conceptuales (preliminares)",
-      "Fuente / sistema / repositorio", "Tipo de información", "Cobertura del dominio", "Vacíos",
-      "Solapamientos / redundancias", "Fragmentación", "Desalineamiento vs. Modelo Conceptual SIIP",
-      "Relevancia p/ modelo AS-IS", "Evidencia"],
+    columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "N° apps",
+      "Aplicaciones", "N° BD", "Fuentes de datos / BD", "Motores involucrados"],
     sql: `
       select
-        (row_number() over (order by b.nombre_bd))::int as "N°",
-        (select string_agg(distinct pn.desc_proceso,' · ') from aplicacion_basedatos abx join aplicacion_proceso ap on ap.id_aplicacion=abx.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso where abx.id_bd=b.id_bd) as "Proceso de negocio / componente SIIP",
-        (select string_agg(distinct df.desc_dominio,' · ') from aplicacion_basedatos abx join aplicacion_proceso ap on ap.id_aplicacion=abx.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio where abx.id_bd=b.id_bd) as "Dominio funcional",
-        'Pendiente de validar' as "Entidades conceptuales (preliminares)",
-        (b.nombre_bd||' ('||coalesce(m.desc_motor,'')||')') as "Fuente / sistema / repositorio",
-        b.tipo_info_gest as "Tipo de información",
-        '' as "Cobertura del dominio", '' as "Vacíos", '' as "Solapamientos / redundancias", '' as "Fragmentación",
-        '' as "Desalineamiento vs. Modelo Conceptual SIIP", '' as "Relevancia p/ modelo AS-IS", '' as "Evidencia"
-      from base_de_datos b left join motor_bd m on m.id_motor_bd=b.id_motor_bd
-      where exists (select 1 from aplicacion_basedatos abx where abx.id_bd=b.id_bd)
-      order by b.nombre_bd
+        (row_number() over (order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso))::int as "N°",
+        tp.desc_tipo_proceso as "Tipo de proceso",
+        df.desc_dominio as "Dominio funcional",
+        pn.desc_proceso as "Proceso de negocio",
+        (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
+        (select string_agg(distinct a.id_app,' ') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
+        (select count(distinct abx.id_bd) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° BD",
+        (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
+        (select string_agg(distinct m.desc_motor,', ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd join motor_bd m on m.id_motor_bd=b.id_motor_bd where ap.id_proceso=pn.id_proceso) as "Motores involucrados"
+      from proceso_negocio pn
+      join dominio_funcional df on df.id_dominio=pn.id_dominio
+      join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+      order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso
     `,
   },
 };
