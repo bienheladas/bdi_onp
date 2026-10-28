@@ -4,5 +4,6 @@
   { "id": "ADI-04", "titulo": "Matriz de Fuentes de Datos por Dominio Funcional", "generador": "dominio_funcional + procesos/apps/BD (en vivo)", "fuente": "live", "archivo": "ADI-04.xlsx" },
   { "id": "ADI-05", "titulo": "Mapa de Relaciones e Integraciones entre Fuentes de Datos", "generador": "tabla integraciones (en vivo)", "fuente": "live", "archivo": "ADI-05.xlsx" },
   { "id": "ADI-07", "titulo": "Matriz de Volumetría y Criticidad de Fuentes de Datos", "generador": "base_de_datos (volumetría) + servidor (en vivo)", "fuente": "live", "archivo": "ADI-07.xlsx" },
+  { "id": "ADI-08", "titulo": "Brechas, Riesgos y Restricciones del Ecosistema de Datos", "generador": "análisis en vivo (documentación, versiones, licenciamiento, seguridad)", "fuente": "live" },
   { "id": "ADI-09", "titulo": "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos", "generador": "base_de_datos + apps/procesos/dominios (en vivo)", "fuente": "live", "archivo": "ADI-09.xlsx" }
 ]

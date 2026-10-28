@@ -177,7 +177,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   "ADI-05": {
     titulo: "Mapa de Relaciones e Integraciones entre Fuentes de Datos (en vivo)",
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
-      "Mecanismo", "Nombre del enlace / job", "Esquema / owner", "Tabla(s) destino", "Modo de carga",
+      "Mecanismo", "Nombre del enlace / job", "Esquema / owner", "Visibilidad", "Tabla(s) destino", "Modo de carga",
       "Objetivo / propósito", "Proveedor", "Estado"],
     sql: `
       select
@@ -189,6 +189,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         i.mecanismo as "Mecanismo",
         i.nombre_enlace as "Nombre del enlace / job",
         i.esquema_owner as "Esquema / owner",
+        case when i.mecanismo <> 'DB Link' then '' when upper(coalesce(i.esquema_owner,''))='PUBLIC' then 'Público' else 'Privado' end as "Visibilidad",
         d.tabla_destino as "Tabla(s) destino",
         d.modo_carga as "Modo de carga",
         d.objetivo as "Objetivo / propósito",
@@ -323,6 +324,50 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       join dominio_funcional df on df.id_dominio=pn.id_dominio
       join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
       order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso
+    `,
+  },
+  "ADI-08": {
+    titulo: "Brechas, Riesgos y Restricciones del Ecosistema de Datos (en vivo)",
+    columns: ["Tema", "Brecha / Riesgo", "Severidad", "Alcance", "Evidencia / dato", "Recomendación"],
+    sql: `
+      with v as (select b.id_bd, b.version_bd, b.edicion, b.estado_bd, m.desc_motor motor
+                 from base_de_datos b join motor_bd m on m.id_motor_bd=b.id_motor_bd
+                 where coalesce(b.estado_bd,'')<>'Fuera de alcance')
+      select 1 ord, 'Documentación' as "Tema", 'Modelo físico poco documentado (comentarios)' as "Brecha / Riesgo", 'Alta' as "Severidad",
+        (select count(*) from (select e.id_esquema from esquema e join tabla t on t.id_esquema=e.id_esquema join columna c on c.id_tabla=t.id_tabla where not e.es_ruido group by e.id_esquema having count(c.comentario)=0) z)::text||' esquemas con 0 comentarios' as "Alcance",
+        'BD core <15% columnas comentadas (BDPRFNT 0%, ONPPROD 5.7%, BDPRDBDI 8.3%, BDPR11G2 14.6%)' as "Evidencia / dato",
+        'Exigir diccionario de datos y comentarios en el modelo; priorizar BD misionales y candidatas a maestro' as "Recomendación"
+      union all
+      select 2, 'Versiones', 'Oracle 11g/10g fuera de soporte', 'Crítica',
+        (select count(*) from v where lower(motor) like '%oracle%' and (version_bd like '11.%' or version_bd like '10.%'))::text||' BD Oracle',
+        'Oracle 11.2/10g sin soporte del fabricante (Premier/Extended vencido)',
+        'Plan de migración a 19c; priorizar por criticidad y datos sensibles'
+      union all
+      select 3, 'Versiones', 'SQL Server fuera de soporte (≤2012/2008/7)', 'Crítica',
+        (select count(*) from v where lower(motor) like '%sql%' and version_bd ~ '^(7|2000|2005|2008|2012)')::text||' BD SQL Server',
+        'SQL Server 2012 (EOL jul-2022) ×54, 2008 R2 y SQL Server 7 ×2',
+        'Migrar a versión soportada (2019/2022); aislar las SQL 7 de inmediato'
+      union all
+      select 4, 'Versiones', 'DB2 y MySQL obsoletos', 'Alta',
+        (select count(*) from v where lower(motor) like '%db2%' or lower(motor) like '%mysql%')::text||' BD (DB2 9.5/10.x, MySQL 5.0)',
+        'DB2 9.5/10.1/10.5 y MySQL 5.0.95 sin soporte',
+        'Evaluar migración/retiro; reforzar respaldo mientras persistan'
+      union all
+      select 5, 'Versiones', 'Servidores con soporte vencido', 'Alta',
+        (select count(*) from servidor where fec_fin_soporte_bd is not null and fec_fin_soporte_bd < current_date)::text||' servidores',
+        'SO/HW fuera de soporte (AIX 6.1, CentOS 5.6, etc.)',
+        'Renovar soporte o plan de reemplazo de infraestructura'
+      union all
+      select 6, 'Licenciamiento', 'Oracle Enterprise Edition (exposición de costo)', 'Media',
+        (select count(*) from v where edicion='Enterprise')::text||' BD Enterprise',
+        'Licencia premium por core + features (TDE/particionamiento). Standard: 93, sin dato: 33',
+        'Revisar uso real de features Enterprise; consolidar y optar por Standard donde aplique'
+      union all
+      select 7, 'Seguridad de integraciones', 'DB Links públicos (acoplamiento no controlado)', 'Alta',
+        (select count(*) from integraciones where mecanismo='DB Link' and upper(coalesce(esquema_owner,''))='PUBLIC')::text||' DB Links públicos (de 134)',
+        'Links PUBLIC usables por cualquier esquema; credenciales embebidas → acceso cruzado/lateral',
+        'Convertir a privados por esquema; inventariar consumidores antes de dar de baja BD'
+      order by ord
     `,
   },
 };
