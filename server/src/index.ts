@@ -247,8 +247,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["ID", "Fuente / BD", "Motor y versión", "Edición", "Ambiente", "Charset",
       "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
       "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
-      "Crecimiento (GB/mes)", "TDE", "Fecha volumetría",
-      "Servidor", "Disco asignado (GB)", "Disco utilizado (GB)", "% ocupación de disco"],
+      "Crecimiento (GB/mes)", "Redo (GB/día)", "TDE", "Fecha volumetría",
+      "Servidor", "Datafiles asignados (GB)", "Datafiles usados (GB)", "% uso datafiles"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
@@ -258,10 +258,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas", b.nro_indices as "N° índices",
         b.nro_vistas as "N° vistas", b.nro_procedimientos as "N° procedimientos", b.nro_triggers as "N° triggers",
         b.tabla_mas_grande as "Tabla más grande", b.tabla_mas_grande_gb as "Tabla más grande (GB)",
-        b.crecimiento_gb as "Crecimiento (GB/mes)", b.tde_estado as "TDE", b.fec_volumetria::text as "Fecha volumetría",
-        s.nombre_servidor as "Servidor", s.disco_asignado_gb as "Disco asignado (GB)",
-        s.disco_utilizado_gb as "Disco utilizado (GB)",
-        case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% ocupación de disco"
+        b.crecimiento_gb as "Crecimiento (GB/mes)", b.redo_gb_dia as "Redo (GB/día)",
+        b.tde_estado as "TDE", b.fec_volumetria::text as "Fecha volumetría",
+        s.nombre_servidor as "Servidor", b.tamano_asignado_gb as "Datafiles asignados (GB)",
+        b.tamano_usado_gb as "Datafiles usados (GB)",
+        case when b.tamano_asignado_gb>0 then round(b.tamano_usado_gb*100/b.tamano_asignado_gb,1) end as "% uso datafiles"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
@@ -288,7 +289,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         (select string_agg(distinct nullif(trim(a.area_usuaria_resp),''),' | ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion a on a.id=ap.id_aplicacion where pn.id_dominio=df.id_dominio) as "Áreas usuarias",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join aplicacion_proceso ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join aplicacion_proceso ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
-        '' as "Vacíos / dispersión", '' as "Observaciones para el modelo conceptual"
+        ('Dispersión máx '||coalesce((select max(n) from (select count(distinct fe.id_bd) n from fuente_entidad fe where fe.id_bd in (select abx.id_bd from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio) group by fe.entidad) z),0)::text||' BD por entidad · '||
+         (select count(*) from (select distinct abx.id_bd ib from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio) q where q.ib not in (select id_bd from fuente_entidad))::text||' BD sin catálogo de entidades') as "Vacíos / dispersión",
+        '' as "Observaciones para el modelo conceptual"
       from dominio_funcional df join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
       order by tp.id_tipo_proceso, df.desc_dominio
     `,
