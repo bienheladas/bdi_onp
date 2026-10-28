@@ -208,6 +208,107 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       order by i.mecanismo, i.id_integracion
     `,
   },
+  "ADI-03": {
+    titulo: "Catálogo AS-IS de Fuentes de Datos Institucionales (en vivo)",
+    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Ambiente", "Datacenter",
+      "Servidor", "Sistema operativo", "Tipo de información", "Dominio normalizado (vía apps)", "Área usuaria",
+      "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° apps", "Tamaño (GB)", "N° esquemas",
+      "N° tablas", "Crecim. (GB/mes)", "Estado", "N° integ.", "Integra con (BD / fuentes)", "Observaciones / banderas"],
+    sql: `
+      select
+        'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
+        b.nombre_bd as "Fuente / BD", b.desc_base_datos as "Descripción general",
+        m.desc_motor as "Motor", b.version_bd as "Versión", a.desc_ambiente as "Ambiente",
+        s.ubicacion as "Datacenter", s.nombre_servidor as "Servidor",
+        (coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')) as "Sistema operativo",
+        b.tipo_info_gest as "Tipo de información", b.dominio_funcional_onp as "Dominio normalizado (vía apps)",
+        b.area_usuario_resp_onp as "Área usuaria", b.gestor as "Gestor", b.resp_funcional as "Responsable funcional",
+        (select string_agg(distinct ap.id_app||' '||coalesce(ap.nombre_app,''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd) as "Aplicaciones consumidoras",
+        (select count(*) from aplicacion_basedatos abx where abx.id_bd=b.id_bd)::int as "N° apps",
+        b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas",
+        b.crecimiento_gb as "Crecim. (GB/mes)", b.estado_bd as "Estado",
+        (select count(*) from integraciones ix where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd)::int as "N° integ.",
+        (select string_agg(distinct t.nm,' | ') from (
+           select coalesce(b2.nombre_bd, ix.destino_externo) nm from integraciones ix left join base_de_datos b2 on b2.id_bd=ix.id_bd_destino where ix.id_bd_origen=b.id_bd
+           union select coalesce(b3.nombre_bd, ix.origen_externo) from integraciones ix left join base_de_datos b3 on b3.id_bd=ix.id_bd_origen where ix.id_bd_destino=b.id_bd
+         ) t where t.nm is not null) as "Integra con (BD / fuentes)",
+        b.observaciones as "Observaciones / banderas"
+      from base_de_datos b
+      left join motor_bd m on m.id_motor_bd=b.id_motor_bd
+      left join ambiente a on a.id_ambiente=b.id_ambiente
+      left join servidor s on s.id_servidor=b.id_servidor
+      order by b.nombre_bd
+    `,
+  },
+  "ADI-07": {
+    titulo: "Matriz de Volumetría y Criticidad de Fuentes de Datos (en vivo)",
+    columns: ["ID", "Datacenter", "Servidor", "Sistema operativo", "vCPU (cores)", "Memoria (GB)",
+      "Disco asignado (GB)", "Disco utilizado (GB)", "% ocupación de disco", "% CPU promedio", "% Memoria promedio",
+      "Fuente / BD", "Motor y versión", "Ambiente", "Tamaño (GB)", "N° esquemas", "N° tablas",
+      "Crecimiento (GB/mes)", "Criticidad", "Dependencia operativa", "Observaciones de almacenamiento / criticidad"],
+    sql: `
+      select
+        'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
+        s.ubicacion as "Datacenter", s.nombre_servidor as "Servidor",
+        (coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')) as "Sistema operativo",
+        s.nro_cores as "vCPU (cores)", s.memoria_gb as "Memoria (GB)",
+        s.disco_asignado_gb as "Disco asignado (GB)", s.disco_utilizado_gb as "Disco utilizado (GB)",
+        case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% ocupación de disco",
+        s.porc_uso_cpu_prom as "% CPU promedio", s.porc_uso_mem_prom as "% Memoria promedio",
+        b.nombre_bd as "Fuente / BD", (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
+        a.desc_ambiente as "Ambiente", b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas",
+        b.nro_tablas as "N° tablas", b.crecimiento_gb as "Crecimiento (GB/mes)",
+        '' as "Criticidad", '' as "Dependencia operativa", b.observaciones as "Observaciones de almacenamiento / criticidad"
+      from base_de_datos b
+      left join motor_bd m on m.id_motor_bd=b.id_motor_bd
+      left join ambiente a on a.id_ambiente=b.id_ambiente
+      left join servidor s on s.id_servidor=b.id_servidor
+      order by b.nombre_bd
+    `,
+  },
+  "ADI-04": {
+    titulo: "Matriz de Fuentes de Datos por Dominio Funcional (en vivo)",
+    columns: ["Tipo de proceso", "Dominio funcional (normalizado)", "Procesos de negocio incluidos", "N° proc.",
+      "N° apps", "Aplicaciones del dominio", "N° BD", "Fuentes de datos / BD del dominio", "Motores involucrados",
+      "Áreas usuarias", "Fuentes exclusivas del dominio", "Fuentes compartidas con otros dominios",
+      "Vacíos / dispersión", "Observaciones para el modelo conceptual"],
+    sql: `
+      select
+        tp.desc_tipo_proceso as "Tipo de proceso", df.desc_dominio as "Dominio funcional (normalizado)",
+        (select string_agg(distinct pn.desc_proceso,' · ') from proceso_negocio pn where pn.id_dominio=df.id_dominio) as "Procesos de negocio incluidos",
+        (select count(*) from proceso_negocio pn where pn.id_dominio=df.id_dominio)::int as "N° proc.",
+        (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso where pn.id_dominio=df.id_dominio)::int as "N° apps",
+        (select string_agg(distinct a.id_app,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion a on a.id=ap.id_aplicacion where pn.id_dominio=df.id_dominio) as "Aplicaciones del dominio",
+        (select count(distinct abx.id_bd) from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio)::int as "N° BD",
+        (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio) as "Fuentes de datos / BD del dominio",
+        (select string_agg(distinct m.desc_motor,', ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd join motor_bd m on m.id_motor_bd=b.id_motor_bd where pn.id_dominio=df.id_dominio) as "Motores involucrados",
+        '' as "Áreas usuarias", '' as "Fuentes exclusivas del dominio", '' as "Fuentes compartidas con otros dominios",
+        '' as "Vacíos / dispersión", '' as "Observaciones para el modelo conceptual"
+      from dominio_funcional df join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+      order by tp.id_tipo_proceso, df.desc_dominio
+    `,
+  },
+  "ADI-09": {
+    titulo: "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos (en vivo)",
+    columns: ["N°", "Proceso de negocio / componente SIIP", "Dominio funcional", "Entidades conceptuales (preliminares)",
+      "Fuente / sistema / repositorio", "Tipo de información", "Cobertura del dominio", "Vacíos",
+      "Solapamientos / redundancias", "Fragmentación", "Desalineamiento vs. Modelo Conceptual SIIP",
+      "Relevancia p/ modelo AS-IS", "Evidencia"],
+    sql: `
+      select
+        (row_number() over (order by b.nombre_bd))::int as "N°",
+        (select string_agg(distinct pn.desc_proceso,' · ') from aplicacion_basedatos abx join aplicacion_proceso ap on ap.id_aplicacion=abx.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso where abx.id_bd=b.id_bd) as "Proceso de negocio / componente SIIP",
+        (select string_agg(distinct df.desc_dominio,' · ') from aplicacion_basedatos abx join aplicacion_proceso ap on ap.id_aplicacion=abx.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio where abx.id_bd=b.id_bd) as "Dominio funcional",
+        'Pendiente de validar' as "Entidades conceptuales (preliminares)",
+        (b.nombre_bd||' ('||coalesce(m.desc_motor,'')||')') as "Fuente / sistema / repositorio",
+        b.tipo_info_gest as "Tipo de información",
+        '' as "Cobertura del dominio", '' as "Vacíos", '' as "Solapamientos / redundancias", '' as "Fragmentación",
+        '' as "Desalineamiento vs. Modelo Conceptual SIIP", '' as "Relevancia p/ modelo AS-IS", '' as "Evidencia"
+      from base_de_datos b left join motor_bd m on m.id_motor_bd=b.id_motor_bd
+      where exists (select 1 from aplicacion_basedatos abx where abx.id_bd=b.id_bd)
+      order by b.nombre_bd
+    `,
+  },
 };
 app.get("/api/artefacto/:id", async (req, res) => {
   try {
