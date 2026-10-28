@@ -208,7 +208,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Ambiente", "Datacenter",
       "Servidor", "Sistema operativo", "Tipo de información", "Dominio normalizado (vía apps)", "Área usuaria",
       "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° apps", "Tamaño (GB)", "N° esquemas",
-      "N° tablas", "Crecim. (GB/mes)", "Estado", "N° integ.", "Integra con (BD / fuentes)", "Observaciones / banderas"],
+      "N° tablas", "Crecim. (GB/mes)", "Estado", "N° integ.", "Integra con (BD / fuentes)",
+      "Solapa con (comparte entidades)", "Observaciones / banderas"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
@@ -227,6 +228,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            select coalesce(b2.nombre_bd, ix.destino_externo) nm from integraciones ix left join base_de_datos b2 on b2.id_bd=ix.id_bd_destino where ix.id_bd_origen=b.id_bd
            union select coalesce(b3.nombre_bd, ix.origen_externo) from integraciones ix left join base_de_datos b3 on b3.id_bd=ix.id_bd_origen where ix.id_bd_destino=b.id_bd
          ) t where t.nm is not null) as "Integra con (BD / fuentes)",
+        b.solapamiento_asis as "Solapa con (comparte entidades)",
         b.observaciones as "Observaciones / banderas"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
@@ -291,7 +293,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "Cobertura",
       "Relevancia (criticidad)", "N° apps", "Aplicaciones", "N° fuentes", "Fuentes de datos / BD",
       "Entidades conceptuales (detectadas)", "Tipo de información", "Dispersión máx (entidad en N fuentes)",
-      "Desalineamiento vs. SIIP", "Evidencia"],
+      "Solapamientos / redundancias (máx entre fuentes)", "Desalineamiento vs. SIIP", "Evidencia"],
     sql: `
       select
         (row_number() over (order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso))::int as "N°",
@@ -310,6 +312,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
         (select max(gc.n)::int from (select fe2.entidad, count(distinct fe2.id_bd) n from fuente_entidad fe2 group by fe2.entidad) gc
            where gc.entidad in (select distinct fe.entidad from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso)) as "Dispersión máx (entidad en N fuentes)",
+        (select max(x.n)::int from (
+           select count(*) n from fuente_entidad fa join fuente_entidad fb on fa.entidad=fb.entidad and fa.id_bd<fb.id_bd
+           where fa.id_bd in (select abx.id_bd from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)
+             and fb.id_bd in (select abx.id_bd from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)
+           group by fa.id_bd, fb.id_bd) x) as "Solapamientos / redundancias (máx entre fuentes)",
         'Dominios de datos SIIP pendientes de definición (MC v.proyecto 18-09-2026)' as "Desalineamiento vs. SIIP",
         'Catálogo físico (tabla/columna) + MC SIIP (F-26) · análisis automatizado' as "Evidencia"
       from proceso_negocio pn
