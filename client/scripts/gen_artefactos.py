@@ -14,36 +14,41 @@ PUB = Path(__file__).resolve().parent.parent / "public"
 ART = PUB / "artefactos"
 
 def extract(xlsx):
-    wb = load_workbook(xlsx, read_only=True, data_only=True)
+    wb = load_workbook(xlsx, data_only=True)   # no read_only: para leer hipervinculos
     ws = wb[wb.sheetnames[0]]
-    rows = [list(r) for r in ws.iter_rows(values_only=True)]
+    rows = list(ws.iter_rows())                # celdas (tienen .value y .hyperlink)
     # titulo: primera celda que contenga 'ADI-'
     titulo = xlsx.stem
     for r in rows[:6]:
-        for v in r:
-            if v and "ADI-" in str(v):
-                titulo = str(v).strip(); break
+        for c in r:
+            if c.value and "ADI-" in str(c.value):
+                titulo = str(c.value).strip(); break
         if titulo != xlsx.stem:
             break
     # fila de encabezado = la de mas celdas no vacias en las primeras 25
     best_i, best_n = 0, 0
     for i, r in enumerate(rows[:25]):
-        n = sum(1 for v in r if v is not None and str(v).strip())
+        n = sum(1 for c in r if c.value is not None and str(c.value).strip())
         if n > best_n:
             best_n, best_i = n, i
     hdr = rows[best_i]
-    # indices de columnas no vacias del encabezado
-    idx = [j for j, v in enumerate(hdr) if v is not None and str(v).strip()]
-    columns = [str(hdr[j]).strip() for j in idx]
-    data = []
+    idx = [j for j, c in enumerate(hdr) if c.value is not None and str(c.value).strip()]
+    columns = [str(hdr[j].value).strip() for j in idx]
+    data, links = [], {}
     for r in rows[best_i + 1:]:
         cells = [r[j] if j < len(r) else None for j in idx]
-        if all(c is None or str(c).strip() == "" for c in cells):
+        if all(c is None or c.value is None or str(c.value).strip() == "" for c in cells):
             if data:
                 break
             continue
-        data.append(["" if c is None else str(c) for c in cells])
-    return {"id": xlsx.stem, "titulo": titulo, "columns": columns, "rows": data}
+        ri = len(data)
+        row = []
+        for ci, c in enumerate(cells):
+            row.append("" if (c is None or c.value is None) else str(c.value))
+            if c is not None and c.hyperlink and c.hyperlink.target:
+                links[f"{ri}_{ci}"] = c.hyperlink.target
+        data.append(row)
+    return {"id": xlsx.stem, "titulo": titulo, "columns": columns, "rows": data, "links": links}
 
 def main():
     xlsxs = sorted(ART.glob("ADI-*.xlsx"))

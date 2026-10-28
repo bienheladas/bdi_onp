@@ -80,7 +80,7 @@ function Flujo() {
 }
 
 type ArtMeta = { id: string; titulo: string; generador: string; archivo: string };
-type ArtData = { id: string; titulo: string; columns: string[]; rows: string[][] };
+type ArtData = { id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> };
 function Artefactos() {
   const [meta, setMeta] = useState<ArtMeta[]>([]);
   const [sel, setSel] = useState<string>("");
@@ -96,10 +96,11 @@ function Artefactos() {
   }, [sel]);
   const cur = meta.find((m) => m.id === sel);
   const rows = useMemo(() => {
-    if (!data) return [];
-    if (!q.trim()) return data.rows;
+    if (!data) return [] as { i: number; r: string[] }[];
+    const all = data.rows.map((r, i) => ({ i, r }));
+    if (!q.trim()) return all;
     const s = q.toLowerCase();
-    return data.rows.filter((r) => r.some((c) => c.toLowerCase().includes(s)));
+    return all.filter(({ r }) => r.some((c) => c.toLowerCase().includes(s)));
   }, [data, q]);
   return (
     <>
@@ -118,7 +119,10 @@ function Artefactos() {
           <table>
             <thead><tr>{data.columns.map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
             <tbody>
-              {rows.map((r, ri) => <tr key={ri}>{r.map((c, ci) => <td key={ci}>{c}</td>)}</tr>)}
+              {rows.map(({ i, r }) => <tr key={i}>{r.map((c, ci) => {
+                const link = data.links[`${i}_${ci}`];
+                return <td key={ci}>{link ? <a className="lnk" href={link} target="_blank" rel="noreferrer">{c || "🔗 abrir"}</a> : c}</td>;
+              })}</tr>)}
               {rows.length === 0 && <tr><td colSpan={data.columns.length || 1} className="muted">Sin resultados.</td></tr>}
             </tbody>
           </table>

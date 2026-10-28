@@ -183,6 +183,7 @@ model fuentes_institucionales {
   vacios_inconsistencias     String?
   ubicacion_ruta             String?
   evidencia_revision         String?
+  enlace                     String?
   origen_fuente              String?   @default("ADI-01") @db.VarChar(40)
   fecha_creacion             DateTime  @default(now()) @db.Timestamptz(6)
   ip_creacion                String?   @db.VarChar(45)
