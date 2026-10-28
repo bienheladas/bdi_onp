@@ -362,10 +362,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         'SO/HW fuera de soporte (AIX 6.1, CentOS 5.6, etc.)',
         'Renovar soporte o plan de reemplazo de infraestructura'
       union all
-      select 6, 'Licenciamiento', 'Oracle Enterprise Edition (exposición de costo)', 'Media',
-        (select count(*) from v where edicion='Enterprise')::text||' BD Enterprise',
-        'Licencia premium por core + features (TDE/particionamiento). Standard: 93, sin dato: 33',
-        'Revisar uso real de features Enterprise; consolidar y optar por Standard donde aplique'
+      select 6, 'Licenciamiento', 'Oracle Enterprise Edition + packs licenciables en uso', 'Media',
+        (select count(*) from v where edicion='Enterprise')::text||' BD Enterprise; '||
+        (select count(*) from base_de_datos where features_usadas is not null)::text||' con packs licenciables en uso',
+        'Enterprise = licencia premium por core; además packs aparte detectados en uso (dba_feature_usage_statistics): Diagnostic Pack y SQL Tuning Advisor (Tuning Pack)',
+        'Revisar uso real y licenciamiento de los packs; consolidar y optar por Standard donde aplique'
       union all
       select 7, 'Seguridad de integraciones', 'DB Links públicos (acoplamiento no controlado)', 'Alta',
         (select count(*) from integracion_dblink where es_publico)::text||' DB Links públicos (de '||(select count(*) from integracion_dblink)::text||' reales, 24 instancias)',
@@ -384,6 +385,21 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         (select count(*) from usuario_bd where pwd_default and estado_cuenta='OPEN')::text||' ABIERTA',
         'DBA_USERS_WITH_DEFPWD: casi todas son cuentas de muestra/sistema ya bloqueadas; única ABIERTA = PERFSTAT@EMI18PRD (Statspack)',
         'Cambiar/eliminar la cuenta abierta (PERFSTAT); dar de baja cuentas de muestra no usadas como hardening'
+      union all
+      select 10, 'Seguridad de datos', 'Datos en reposo sin cifrado (TDE inactivo)', 'Alta',
+        (select count(*) from base_de_datos b join motor_bd m on m.id_motor_bd=b.id_motor_bd where lower(m.desc_motor) like '%oracle%' and b.fec_volumetria is not null and coalesce(b.tde_estado,'')<>'OPEN')::text||' BD Oracle sin TDE activo (de 24 medidas)',
+        'Wallet TDE cerrado/no disponible y 0 tablespaces/columnas cifradas, pese a datos personales (afiliados, RENIEC/SUNAT)',
+        'Evaluar TDE o cifrado de almacenamiento en BD con datos sensibles; priorizar las de mayor volumen'
+      union all
+      select 11, 'Continuidad operativa', 'BD en NOARCHIVELOG (sin recuperación punto-en-tiempo)', 'Crítica',
+        (select count(*) from base_de_datos where modo_archivado='NOARCHIVELOG')::text||' BD en NOARCHIVELOG',
+        'Sin archivado de redo no hay recuperación a un instante ni respaldo en caliente consistente (ej. EMI18/EMI19/EMI20)',
+        'Activar ARCHIVELOG en las BD productivas y validar la estrategia de respaldo RMAN'
+      union all
+      select 12, 'Calidad / salud', 'Objetos de BD inválidos', 'Media',
+        (select coalesce(sum(nro_objetos_invalidos),0) from base_de_datos)::text||' objetos INVALID en '||(select count(*) from base_de_datos where coalesce(nro_objetos_invalidos,0)>0)::text||' BD',
+        'Objetos (vistas/packages/procedimientos) en estado INVALID (EMI19=80, BDPR11G2=72) → dependencias rotas o despliegues incompletos',
+        'Recompilar (utlrp) y revisar dependencias; usar como indicador de salud del esquema'
       order by ord
     `,
   },
