@@ -79,37 +79,51 @@ function Flujo() {
   );
 }
 
-type Artefacto = { id: string; titulo: string; descripcion: string; tipo: string; generador: string; archivo: string };
+type ArtMeta = { id: string; titulo: string; generador: string; archivo: string };
+type ArtData = { id: string; titulo: string; columns: string[]; rows: string[][] };
 function Artefactos() {
-  const [items, setItems] = useState<Artefacto[]>([]);
-  const [err, setErr] = useState("");
+  const [meta, setMeta] = useState<ArtMeta[]>([]);
+  const [sel, setSel] = useState<string>("");
+  const [data, setData] = useState<ArtData | null>(null);
+  const [q, setQ] = useState("");
   useEffect(() => {
-    fetch("/artefactos/manifest.json").then((r) => r.json()).then(setItems)
-      .catch(() => setErr("No se pudo cargar el catálogo de artefactos."));
+    fetch("/artefactos/manifest.json").then((r) => r.json()).then((m: ArtMeta[]) => { setMeta(m); if (m[0]) setSel(m[0].id); });
   }, []);
-  const href = (a: Artefacto) => a.archivo.startsWith("..") ? a.archivo.slice(2) : `/artefactos/${a.archivo}`;
+  useEffect(() => {
+    if (!sel) return;
+    setData(null);
+    fetch(`/artefactos/${sel}.json`).then((r) => r.json()).then(setData).catch(() => setData(null));
+  }, [sel]);
+  const cur = meta.find((m) => m.id === sel);
+  const rows = useMemo(() => {
+    if (!data) return [];
+    if (!q.trim()) return data.rows;
+    const s = q.toLowerCase();
+    return data.rows.filter((r) => r.some((c) => c.toLowerCase().includes(s)));
+  }, [data, q]);
   return (
     <>
-      <div className="toolbar"><h2>Artefactos <span className="pill">{items.length}</span></h2></div>
-      {err && <p className="muted">{err}</p>}
-      <div className="tablewrap">
-        <table>
-          <thead><tr><th>ID</th><th>Título</th><th>Descripción</th><th>Tipo</th><th>Generador</th><th>Descarga</th></tr></thead>
-          <tbody>
-            {items.map((a) => (
-              <tr key={a.id}>
-                <td><b>{a.id}</b></td>
-                <td>{a.titulo}</td>
-                <td className="muted">{a.descripcion}</td>
-                <td>{a.tipo}</td>
-                <td><code style={{ fontSize: 12 }}>{a.generador}</code></td>
-                <td><a className="btn xs" href={href(a)} target="_blank" rel="noreferrer" download>⬇ Descargar</a></td>
-              </tr>
-            ))}
-            {items.length === 0 && !err && <tr><td colSpan={6} className="muted">Cargando…</td></tr>}
-          </tbody>
-        </table>
+      <div className="toolbar">
+        <h2>Artefactos</h2>
+        <select className="search" value={sel} onChange={(e) => setSel(e.target.value)} style={{ maxWidth: 440 }}>
+          {meta.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.titulo}</option>)}
+        </select>
+        <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+        {cur && <a className="btn sec" href={`/artefactos/${cur.archivo}`} download>⬇ Este (.xlsx)</a>}
+        <a className="btn" href="/artefactos/artefactos.zip" download>⬇ Descargar todos</a>
       </div>
+      {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
+      {!data ? <p className="muted">Cargando…</p> : (
+        <div className="tablewrap">
+          <table>
+            <thead><tr>{data.columns.map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((r, ri) => <tr key={ri}>{r.map((c, ci) => <td key={ci}>{c}</td>)}</tr>)}
+              {rows.length === 0 && <tr><td colSpan={data.columns.length || 1} className="muted">Sin resultados.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   );
 }
