@@ -115,7 +115,9 @@ function Artefactos() {
     if (!sel || meta.length === 0) return;
     setData(null);
     const m0 = meta.find((m) => m.id === sel);
-    const p = m0?.fuente === "tabla" ? loadFuentes() : fetch(`/artefactos/${sel}.json`).then((r) => r.json());
+    const p = m0?.fuente === "tabla" ? loadFuentes()
+      : m0?.fuente === "live" ? api.artefacto(sel)
+      : fetch(`/artefactos/${sel}.json`).then((r) => r.json());
     p.then(setData).catch(() => setData(null));
   }, [sel, meta]);
   const cur = meta.find((m) => m.id === sel);

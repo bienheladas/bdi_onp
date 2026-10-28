@@ -170,6 +170,55 @@ app.get("/api/oficinas", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------- ARTEFACTOS en vivo (Reportería) ----------------
+// Cada artefacto se arma desde la data actual (no un Excel en duro). Devuelve
+// {columns, rows, links} igual que los <ID>.json estáticos.
+const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> = {
+  "ADI-05": {
+    titulo: "Mapa de Relaciones e Integraciones entre Fuentes de Datos (en vivo)",
+    columns: ["N°", "Fuente origen", "Servidor origen", "Motor origen", "Apps del origen",
+      "Fuente destino / consumidora", "Servidor destino", "Motor destino", "Apps del destino",
+      "Nombre del enlace / job", "Esquema / owner", "Tipo de relación", "Mecanismo", "Estado",
+      "Dominio (origen)", "Riesgos / limitaciones"],
+    sql: `
+      select
+        (row_number() over (order by i.mecanismo, i.id_integracion))::int as "N°",
+        coalesce(bo.nombre_bd, i.origen_externo) as "Fuente origen",
+        so.nombre_servidor as "Servidor origen",
+        mo.desc_motor as "Motor origen",
+        (select string_agg(distinct a.id_app, ' ') from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=i.id_bd_origen) as "Apps del origen",
+        coalesce(bd.nombre_bd, i.destino_externo) as "Fuente destino / consumidora",
+        sd.nombre_servidor as "Servidor destino",
+        md.desc_motor as "Motor destino",
+        (select string_agg(distinct a.id_app, ' ') from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=i.id_bd_destino) as "Apps del destino",
+        i.nombre_enlace as "Nombre del enlace / job",
+        i.esquema_owner as "Esquema / owner",
+        case when i.mecanismo like '%DataStage%' then 'ETL / DataStage' when i.mecanismo='DB Link' then 'DB Link' else coalesce(i.mecanismo,'') end as "Tipo de relación",
+        i.mecanismo as "Mecanismo",
+        coalesce(i.estado_enlace,'') as "Estado",
+        left(coalesce(bo.dominio_funcional_onp,''), 160) as "Dominio (origen)",
+        '' as "Riesgos / limitaciones"
+      from integraciones i
+      left join base_de_datos bo on bo.id_bd=i.id_bd_origen
+      left join servidor so on so.id_servidor=bo.id_servidor
+      left join motor_bd mo on mo.id_motor_bd=bo.id_motor_bd
+      left join base_de_datos bd on bd.id_bd=i.id_bd_destino
+      left join servidor sd on sd.id_servidor=bd.id_servidor
+      left join motor_bd md on md.id_motor_bd=bd.id_motor_bd
+      order by i.mecanismo, i.id_integracion
+    `,
+  },
+};
+app.get("/api/artefacto/:id", async (req, res) => {
+  try {
+    const a = ARTE[req.params.id];
+    if (!a) return res.status(404).json({ error: "artefacto no disponible en vivo" });
+    const data = await prisma.$queryRawUnsafe<any[]>(a.sql);
+    const rows = data.map((r) => a.columns.map((c) => (r[c] == null ? "" : String(r[c]))));
+    res.json({ id: req.params.id, titulo: a.titulo, columns: a.columns, rows, links: {} });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ---------------- CRUD genérico (entidades principales) ----------------
 app.get("/api/:model", async (req, res) => {
   try {
