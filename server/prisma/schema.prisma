@@ -132,7 +132,6 @@ model integraciones {
   destino_externo                                          String?        @db.VarChar(160)
   mecanismo                                                String?        @db.VarChar(120)
   nombre_enlace                                            String?        @db.VarChar(200)
-  esquema_owner                                            String?        @db.VarChar(120)
   estado_enlace                                            String?        @db.VarChar(40)
   fecha_creacion                                           DateTime       @default(now()) @db.Timestamptz(6)
   ip_creacion                                              String?        @db.VarChar(45)
@@ -141,6 +140,21 @@ model integraciones {
   base_de_datos_integraciones_id_bd_destinoTobase_de_datos base_de_datos? @relation("integraciones_id_bd_destinoTobase_de_datos", fields: [id_bd_destino], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
   base_de_datos_integraciones_id_bd_origenTobase_de_datos  base_de_datos? @relation("integraciones_id_bd_origenTobase_de_datos", fields: [id_bd_origen], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
   integracion_datastage                                    integracion_datastage?
+  integracion_dblink                                       integracion_dblink?
+}
+
+model integracion_dblink {
+  id_integracion              Int           @id
+  owner                       String?       @db.VarChar(128)
+  es_publico                  Boolean?      @default(false)
+  usuario_remoto              String?       @db.VarChar(128)
+  id_usuario_remoto           Int?
+  host_destino                String?       @db.VarChar(512)
+  usuario_remoto_privilegiado Boolean?
+  nivel_riesgo                String?       @db.VarChar(20)
+  fec_creacion_link           DateTime?     @db.Date
+  fec_extraccion              DateTime      @default(now()) @db.Timestamptz(6)
+  integraciones               integraciones @relation(fields: [id_integracion], references: [id_integracion], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model integracion_datastage {

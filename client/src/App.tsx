@@ -431,7 +431,7 @@ function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose
   const [items, setItems] = useState<any[]>([]);
   const [sel, setSel] = useState("");
   const [err, setErr] = useState("");
-  const [intg, setIntg] = useState<any>({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", esquema_owner: "", estado_enlace: "" });
+  const [intg, setIntg] = useState<any>({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", estado_enlace: "" });
 
   const reload = () => api.relList(parent.name, pid, rel.key).then(setItems).catch((e) => setErr(e.message));
   useEffect(() => { reload(); if (rel.mode !== "child") ensureOpts(rel.target); else ensureOpts("base_de_datos"); }, []);
@@ -439,7 +439,7 @@ function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose
   const addNM = async () => { if (!sel) return; try { await api.relAdd(parent.name, pid, rel.key, { [tgtPk]: sel }); setSel(""); reload(); } catch (e: any) { setErr(e.message); } };
   const delNM = async (cid: any) => { try { await api.relDel(parent.name, pid, rel.key, cid); reload(); } catch (e: any) { setErr(e.message); } };
   const addIntg = async () => {
-    try { await api.relAdd(parent.name, pid, rel.key, { ...intg, id_bd_destino: intg.id_bd_destino || null }); setIntg({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", esquema_owner: "", estado_enlace: "" }); reload(); }
+    try { await api.relAdd(parent.name, pid, rel.key, { ...intg, id_bd_destino: intg.id_bd_destino || null }); setIntg({ id_bd_destino: "", destino_externo: "", mecanismo: "", nombre_enlace: "", estado_enlace: "" }); reload(); }
     catch (e: any) { setErr(e.message); }
   };
 
@@ -483,13 +483,13 @@ function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose
           {rel.mode === "child" && (
             <>
               <div className="tablewrap" style={{ marginBottom: 12 }}><table>
-                <thead><tr><th>destino</th><th>mecanismo</th><th>enlace</th><th>owner</th><th>estado</th><th></th></tr></thead>
+                <thead><tr><th>destino</th><th>mecanismo</th><th>enlace</th><th>estado</th><th></th></tr></thead>
                 <tbody>{items.map((it) => (
                   <tr key={it.id_integracion}>
-                    <td>{it.id_bd_destino ? <a className="lnk" onClick={() => go("base_de_datos", it.id_bd_destino)}>{it.destino}</a> : it.destino}</td><td>{it.mecanismo}</td><td>{it.nombre_enlace}</td><td>{it.esquema_owner}</td><td>{it.estado_enlace}</td>
+                    <td>{it.id_bd_destino ? <a className="lnk" onClick={() => go("base_de_datos", it.id_bd_destino)}>{it.destino}</a> : it.destino}</td><td>{it.mecanismo}</td><td>{it.nombre_enlace}</td><td>{it.estado_enlace}</td>
                     <td><button className="btn xs danger" onClick={async () => { try { await api.relDel(parent.name, pid, rel.key, it.id_integracion); reload(); } catch (e: any) { setErr(e.message); } }}>borrar</button></td>
                   </tr>))}
-                  {items.length === 0 && <tr><td colSpan={6} className="muted">Sin integraciones.</td></tr>}</tbody></table></div>
+                  {items.length === 0 && <tr><td colSpan={5} className="muted">Sin integraciones.</td></tr>}</tbody></table></div>
               <div className="frow"><label>Agregar integración</label></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <select value={intg.id_bd_destino} onChange={(e) => setIntg({ ...intg, id_bd_destino: e.target.value })}>
@@ -499,7 +499,6 @@ function RelationModal({ parent, models, opts, ensureOpts, go, rel, row, onClose
                 <input placeholder="destino externo (si no es BD interna)" value={intg.destino_externo} onChange={(e) => setIntg({ ...intg, destino_externo: e.target.value })} />
                 <input placeholder="mecanismo (p.ej. DB Link)" value={intg.mecanismo} onChange={(e) => setIntg({ ...intg, mecanismo: e.target.value })} />
                 <input placeholder="nombre del enlace" value={intg.nombre_enlace} onChange={(e) => setIntg({ ...intg, nombre_enlace: e.target.value })} />
-                <input placeholder="esquema/owner" value={intg.esquema_owner} onChange={(e) => setIntg({ ...intg, esquema_owner: e.target.value })} />
                 <input placeholder="estado" value={intg.estado_enlace} onChange={(e) => setIntg({ ...intg, estado_enlace: e.target.value })} />
               </div>
               <div style={{ marginTop: 10, textAlign: "right" }}><button className="btn" onClick={addIntg}>Agregar</button></div>

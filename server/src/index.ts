@@ -189,12 +189,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         md.desc_motor as "Motor destino",
         i.mecanismo as "Mecanismo",
         i.nombre_enlace as "Nombre del enlace / job",
-        i.esquema_owner as "Esquema / owner",
-        case when i.mecanismo <> 'DB Link' then '' when upper(coalesce(i.esquema_owner,''))='PUBLIC' then 'Público' else 'Privado' end as "Visibilidad",
-        (select dl.usuario_remoto from db_link_catalogo dl where dl.id_bd_origen=i.id_bd_origen and upper(dl.db_link)=upper(i.nombre_enlace)
-           order by case dl.nivel_riesgo when 'Critico' then 1 when 'Alto' then 2 when 'Medio' then 3 else 4 end limit 1) as "Usuario remoto (DB Link)",
-        (select dl.nivel_riesgo from db_link_catalogo dl where dl.id_bd_origen=i.id_bd_origen and upper(dl.db_link)=upper(i.nombre_enlace)
-           order by case dl.nivel_riesgo when 'Critico' then 1 when 'Alto' then 2 when 'Medio' then 3 else 4 end limit 1) as "Riesgo del enlace",
+        coalesce(dl.owner, d.esquema_owner) as "Esquema / owner",
+        case when i.mecanismo <> 'DB Link' then '' when dl.es_publico then 'Público' else 'Privado' end as "Visibilidad",
+        coalesce(dl.usuario_remoto,'') as "Usuario remoto (DB Link)",
+        coalesce(dl.nivel_riesgo,'') as "Riesgo del enlace",
         d.tabla_destino as "Tabla(s) destino",
         d.modo_carga as "Modo de carga",
         d.objetivo as "Objetivo / propósito",
@@ -206,6 +204,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join base_de_datos bd on bd.id_bd=i.id_bd_destino
       left join motor_bd md on md.id_motor_bd=bd.id_motor_bd
       left join integracion_datastage d on d.id_integracion=i.id_integracion
+      left join integracion_dblink dl on dl.id_integracion=i.id_integracion
       order by i.mecanismo, i.id_integracion
     `,
   },
@@ -369,13 +368,13 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         'Revisar uso real de features Enterprise; consolidar y optar por Standard donde aplique'
       union all
       select 7, 'Seguridad de integraciones', 'DB Links públicos (acoplamiento no controlado)', 'Alta',
-        (select count(*) from db_link_catalogo where es_publico)::text||' DB Links públicos (de '||(select count(*) from db_link_catalogo)::text||' reales, 23 instancias)',
+        (select count(*) from integracion_dblink where es_publico)::text||' DB Links públicos (de '||(select count(*) from integracion_dblink)::text||' reales, 24 instancias)',
         'Links PUBLIC usables por cualquier esquema; credenciales embebidas → acceso cruzado/lateral',
         'Convertir a privados por esquema; inventariar consumidores antes de dar de baja BD'
       union all
       select 8, 'Seguridad de integraciones', 'DB Links de alto riesgo (público + usuario remoto privilegiado)', 'Crítica',
-        (select count(*) from db_link_catalogo where nivel_riesgo='Critico')::text||' DB Links críticos; '||
-        (select count(*) from db_link_catalogo where usuario_remoto_privilegiado)::text||' con usuario remoto DBA/ANY',
+        (select count(*) from integracion_dblink where nivel_riesgo='Critico')::text||' DB Links críticos; '||
+        (select count(*) from integracion_dblink where usuario_remoto_privilegiado)::text||' con usuario remoto DBA/ANY',
         'Links PUBLIC cuyo usuario remoto tiene DBA/privilegios ANY en el destino (ej. SNPCONNECT entrelaza EMI18/19/20↔NSP18/20; USUA_DBL_BDI_SGPSYS→BDPRD11G) → acceso privilegiado lateral',
         'Reemplazar por usuarios remotos de mínimo privilegio y hacer privados los links; rotar credenciales embebidas'
       union all
@@ -617,7 +616,7 @@ app.get("/api/base_de_datos/:id/integraciones", async (req, res) => {
   });
   res.json(rows.map((r) => ({
     id_integracion: r.id_integracion, mecanismo: r.mecanismo, nombre_enlace: r.nombre_enlace,
-    esquema_owner: r.esquema_owner, estado_enlace: r.estado_enlace, id_bd_destino: r.id_bd_destino,
+    estado_enlace: r.estado_enlace, id_bd_destino: r.id_bd_destino,
     destino: r.base_de_datos_integraciones_id_bd_destinoTobase_de_datos?.nombre_bd || r.destino_externo,
   })));
 });
@@ -627,7 +626,7 @@ app.post("/api/base_de_datos/:id/integraciones", async (req, res) => {
     const row = await prisma.integraciones.create({ data: {
       id_bd_origen: +req.params.id, id_bd_destino: b.id_bd_destino ? +b.id_bd_destino : null,
       destino_externo: b.destino_externo || null, mecanismo: b.mecanismo || null,
-      nombre_enlace: b.nombre_enlace || null, esquema_owner: b.esquema_owner || null, estado_enlace: b.estado_enlace || null,
+      nombre_enlace: b.nombre_enlace || null, estado_enlace: b.estado_enlace || null,
       ip_creacion: clientIp(req),
     } });
     res.json(row);
@@ -639,7 +638,7 @@ app.put("/api/base_de_datos/:id/integraciones/:iid", async (req, res) => {
     const row = await prisma.integraciones.update({ where: { id_integracion: +req.params.iid }, data: {
       id_bd_destino: b.id_bd_destino ? +b.id_bd_destino : null, destino_externo: b.destino_externo || null,
       mecanismo: b.mecanismo || null, nombre_enlace: b.nombre_enlace || null,
-      esquema_owner: b.esquema_owner || null, estado_enlace: b.estado_enlace || null,
+      estado_enlace: b.estado_enlace || null,
     } });
     res.json(row);
   } catch (e: any) { res.status(400).json({ error: e.message }); }
