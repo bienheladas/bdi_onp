@@ -288,19 +288,30 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-09": {
     titulo: "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos (en vivo)",
-    columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "N° apps",
-      "Aplicaciones", "N° BD", "Fuentes de datos / BD", "Motores involucrados"],
+    columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "Cobertura",
+      "Relevancia (criticidad)", "N° apps", "Aplicaciones", "N° fuentes", "Fuentes de datos / BD",
+      "Entidades conceptuales (detectadas)", "Tipo de información", "Dispersión máx (entidad en N fuentes)",
+      "Desalineamiento vs. SIIP", "Evidencia"],
     sql: `
       select
         (row_number() over (order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso))::int as "N°",
         tp.desc_tipo_proceso as "Tipo de proceso",
         df.desc_dominio as "Dominio funcional",
         pn.desc_proceso as "Proceso de negocio",
+        case when exists(select 1 from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso) then 'Con sistema' else 'Sin fuente (vacío)' end as "Cobertura",
+        (select case max(case upper(trim(a.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
+           when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
+         from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Relevancia (criticidad)",
         (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
         (select string_agg(distinct a.id_app,' ') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
-        (select count(distinct abx.id_bd) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° BD",
+        (select count(distinct abx.id_bd) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
-        (select string_agg(distinct m.desc_motor,', ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd join motor_bd m on m.id_motor_bd=b.id_motor_bd where ap.id_proceso=pn.id_proceso) as "Motores involucrados"
+        (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
+        (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
+        (select max(gc.n)::int from (select fe2.entidad, count(distinct fe2.id_bd) n from fuente_entidad fe2 group by fe2.entidad) gc
+           where gc.entidad in (select distinct fe.entidad from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso)) as "Dispersión máx (entidad en N fuentes)",
+        'Dominios de datos SIIP pendientes de definición (MC v.proyecto 18-09-2026)' as "Desalineamiento vs. SIIP",
+        'Catálogo físico (tabla/columna) + MC SIIP (F-26) · análisis automatizado' as "Evidencia"
       from proceso_negocio pn
       join dominio_funcional df on df.id_dominio=pn.id_dominio
       join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
