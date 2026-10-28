@@ -126,7 +126,8 @@ model dominio_funcional {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model integraciones {
   id_integracion                                           Int            @id @default(autoincrement())
-  id_bd_origen                                             Int
+  id_bd_origen                                             Int?
+  origen_externo                                           String?        @db.VarChar(160)
   id_bd_destino                                            Int?
   destino_externo                                          String?        @db.VarChar(160)
   mecanismo                                                String?        @db.VarChar(120)
@@ -138,7 +139,55 @@ model integraciones {
   fecha_modificacion                                       DateTime?      @db.Timestamptz(6)
   ip_modificacion                                          String?        @db.VarChar(45)
   base_de_datos_integraciones_id_bd_destinoTobase_de_datos base_de_datos? @relation("integraciones_id_bd_destinoTobase_de_datos", fields: [id_bd_destino], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
-  base_de_datos_integraciones_id_bd_origenTobase_de_datos  base_de_datos  @relation("integraciones_id_bd_origenTobase_de_datos", fields: [id_bd_origen], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  base_de_datos_integraciones_id_bd_origenTobase_de_datos  base_de_datos? @relation("integraciones_id_bd_origenTobase_de_datos", fields: [id_bd_origen], references: [id_bd], onDelete: NoAction, onUpdate: NoAction)
+  integracion_datastage                                    integracion_datastage?
+}
+
+model integracion_datastage {
+  id_integracion         Int           @id
+  objetivo               String?
+  aplicativo_modelo      String?       @db.VarChar(160)
+  reprocesable           String?       @db.VarChar(5)
+  proveedor              String?       @db.VarChar(120)
+  responsable            String?       @db.VarChar(160)
+  fec_ultima_modif       DateTime?     @db.Date
+  version_job            String?       @db.VarChar(40)
+  carpeta                String?       @db.VarChar(300)
+  proyecto_ds            String?       @db.VarChar(80)
+  servidor_ds            String?       @db.VarChar(80)
+  param_conexion_origen  String?       @db.VarChar(300)
+  param_conexion_destino String?       @db.VarChar(300)
+  modo_carga             String?       @db.VarChar(160)
+  tabla_origen           String?
+  tabla_destino          String?
+  usa_archivo_plano      Boolean?      @default(false)
+  sql_extraccion         String?
+  fecha_creacion         DateTime      @default(now()) @db.Timestamptz(6)
+  ip_creacion            String?       @db.VarChar(45)
+  fecha_modificacion     DateTime?     @db.Timestamptz(6)
+  ip_modificacion        String?       @db.VarChar(45)
+  integraciones          integraciones @relation(fields: [id_integracion], references: [id_integracion], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model fuentes_institucionales {
+  id_fuente                  String    @id @db.VarChar(12)
+  fuente_documental          String?   @db.VarChar(300)
+  descripcion_proposito      String?
+  area_responsable           String?   @db.VarChar(200)
+  fecha_version_estado       String?   @db.VarChar(120)
+  tipo_fuente                String?   @db.VarChar(120)
+  formato_medio              String?   @db.VarChar(120)
+  nivel_confidencialidad     String?   @db.VarChar(60)
+  relacion_sistemas_procesos String?
+  hallazgos                  String?
+  vacios_inconsistencias     String?
+  ubicacion_ruta             String?
+  evidencia_revision         String?
+  origen_fuente              String?   @default("ADI-01") @db.VarChar(40)
+  fecha_creacion             DateTime  @default(now()) @db.Timestamptz(6)
+  ip_creacion                String?   @db.VarChar(45)
+  fecha_modificacion         DateTime? @db.Timestamptz(6)
+  ip_modificacion            String?   @db.VarChar(45)
 }
 
 model motor_bd {

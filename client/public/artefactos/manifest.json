@@ -1,0 +1,58 @@
+[
+  {
+    "id": "Mapa de flujo",
+    "titulo": "Mapa de flujo de datos ONP",
+    "descripcion": "Diagrama interactivo de instancias de datos y sus integraciones (DataStage + DB Links), agregadas y por mecanismo.",
+    "tipo": "HTML interactivo",
+    "generador": "Modelo_BDI/load/generate_flujo_html.py",
+    "archivo": "../flujo_datos_onp.html"
+  },
+  {
+    "id": "ADI-01",
+    "titulo": "Fuentes de Información y Evidencias Técnicas",
+    "descripcion": "Catálogo de fuentes documentales/insumos revisados (D-01…F-27) con estado, hallazgos y vacíos. Base de la tabla fuentes_institucionales.",
+    "tipo": "Excel",
+    "generador": "Modelo_BDI/load/load_fuentes_institucionales.py (+ build ADI)",
+    "archivo": "ADI-01.xlsx"
+  },
+  {
+    "id": "ADI-03",
+    "titulo": "Catálogo AS-IS de Fuentes de Datos Institucionales",
+    "descripcion": "Inventario de fuentes de datos (BDs) con motor, servidor, dominio, apps, volumetría y estado.",
+    "tipo": "Excel",
+    "generador": "Modelo_BDI/load/build_adi_oficial.py",
+    "archivo": "ADI-03.xlsx"
+  },
+  {
+    "id": "ADI-04",
+    "titulo": "Matriz de Fuentes de Datos por Dominio Funcional",
+    "descripcion": "Cruce de las fuentes de datos contra los dominios funcionales de la ONP.",
+    "tipo": "Excel",
+    "generador": "Modelo_BDI/load/build_adi_oficial.py",
+    "archivo": "ADI-04.xlsx"
+  },
+  {
+    "id": "ADI-05",
+    "titulo": "Mapa de Relaciones e Integraciones entre Fuentes de Datos",
+    "descripcion": "Integraciones entre fuentes de datos: DB Links, ETL DataStage y enlaces externos.",
+    "tipo": "Excel",
+    "generador": "Modelo_BDI/load/build_adi_oficial.py",
+    "archivo": "ADI-05.xlsx"
+  },
+  {
+    "id": "ADI-07",
+    "titulo": "Matriz de Volumetría y Criticidad de Fuentes de Datos",
+    "descripcion": "Volumetría por BD (tamaño, tablas, índices, crecimiento) y criticidad, por motor.",
+    "tipo": "Excel",
+    "generador": "Modelo_BDI/load/generar_scripts_volumetria.py + load_volumetria*.py",
+    "archivo": "ADI-07.xlsx"
+  },
+  {
+    "id": "ADI-09",
+    "titulo": "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos",
+    "descripcion": "Correspondencia entre procesos de negocio, dominios funcionales y fuentes de datos.",
+    "tipo": "Excel",
+    "generador": "Modelo_BDI/load/build_adi_oficial.py",
+    "archivo": "ADI-09.xlsx"
+  }
+]

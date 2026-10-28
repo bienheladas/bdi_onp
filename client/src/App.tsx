@@ -51,13 +51,66 @@ export default function App() {
         {ENT.map((n) => models.find((m) => m.name === n) && (
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
+        <div className="grp">Reportería</div>
+        <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🗺 Mapa de flujo</a>
+        <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos</a>
       </nav>
       <main className="main">
         {cur === "__pend__"
           ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} go={go} />
+          : cur === "__flujo__" ? <Flujo />
+          : cur === "__artefactos__" ? <Artefactos />
           : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} pending={pending} clearPending={() => setPending(null)} /> : <p>Cargando…</p>}
       </main>
     </div>
+  );
+}
+
+function Flujo() {
+  return (
+    <>
+      <div className="toolbar">
+        <h2>Mapa de flujo de datos</h2>
+        <a className="btn" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">Abrir en pestaña nueva ↗</a>
+      </div>
+      <iframe src="/flujo_datos_onp.html" title="Mapa de flujo de datos ONP"
+        style={{ width: "100%", height: "calc(100vh - 150px)", border: "1px solid #334", borderRadius: 8, background: "#1b1f27" }} />
+    </>
+  );
+}
+
+type Artefacto = { id: string; titulo: string; descripcion: string; tipo: string; generador: string; archivo: string };
+function Artefactos() {
+  const [items, setItems] = useState<Artefacto[]>([]);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    fetch("/artefactos/manifest.json").then((r) => r.json()).then(setItems)
+      .catch(() => setErr("No se pudo cargar el catálogo de artefactos."));
+  }, []);
+  const href = (a: Artefacto) => a.archivo.startsWith("..") ? a.archivo.slice(2) : `/artefactos/${a.archivo}`;
+  return (
+    <>
+      <div className="toolbar"><h2>Artefactos <span className="pill">{items.length}</span></h2></div>
+      {err && <p className="muted">{err}</p>}
+      <div className="tablewrap">
+        <table>
+          <thead><tr><th>ID</th><th>Título</th><th>Descripción</th><th>Tipo</th><th>Generador</th><th>Descarga</th></tr></thead>
+          <tbody>
+            {items.map((a) => (
+              <tr key={a.id}>
+                <td><b>{a.id}</b></td>
+                <td>{a.titulo}</td>
+                <td className="muted">{a.descripcion}</td>
+                <td>{a.tipo}</td>
+                <td><code style={{ fontSize: 12 }}>{a.generador}</code></td>
+                <td><a className="btn xs" href={href(a)} target="_blank" rel="noreferrer" download>⬇ Descargar</a></td>
+              </tr>
+            ))}
+            {items.length === 0 && !err && <tr><td colSpan={6} className="muted">Cargando…</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
