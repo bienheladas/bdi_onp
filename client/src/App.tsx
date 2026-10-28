@@ -79,8 +79,30 @@ function Flujo() {
   );
 }
 
-type ArtMeta = { id: string; titulo: string; generador: string; archivo: string };
+type ArtMeta = { id: string; titulo: string; generador: string; archivo?: string; fuente?: string };
 type ArtData = { id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> };
+// ADI-01 se arma EN VIVO desde la tabla fuentes_institucionales (22 oficiales + nuevas LCP),
+// no de un Excel en duro. El resto de artefactos sí vienen de su <ID>.json.
+const FCOLS: [string, string][] = [
+  ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"], ["descripcion_proposito", "Descripción / propósito"],
+  ["area_responsable", "Área responsable"], ["fecha_version_estado", "Fecha / versión / estado"],
+  ["tipo_fuente", "Tipo de fuente"], ["formato_medio", "Formato / medio"], ["nivel_confidencialidad", "Confidencialidad"],
+  ["relacion_sistemas_procesos", "Relación con sistemas / procesos"], ["hallazgos", "Hallazgos"],
+  ["vacios_inconsistencias", "Vacíos / inconsistencias"], ["ubicacion_ruta", "Ubicación / ruta"],
+  ["evidencia_revision", "Evidencia"], ["enlace", "Enlace"], ["origen_fuente", "Origen"],
+];
+async function loadFuentes(): Promise<ArtData> {
+  const d = await api.list("fuentes_institucionales", "", 0, 500, null);
+  const columns = FCOLS.map((c) => c[1]);
+  const enlaceIdx = FCOLS.findIndex((c) => c[0] === "enlace");
+  const rows: string[][] = [];
+  const links: Record<string, string> = {};
+  d.rows.forEach((r: any, ri: number) => {
+    rows.push(FCOLS.map(([f]) => (r[f] == null ? "" : String(r[f]))));
+    if (r.enlace) links[`${ri}_${enlaceIdx}`] = r.enlace;
+  });
+  return { id: "ADI-01", titulo: "Fuentes de Información (ADI-01 consolidado + nuevas LCP)", columns, rows, links };
+}
 function Artefactos() {
   const [meta, setMeta] = useState<ArtMeta[]>([]);
   const [sel, setSel] = useState<string>("");
@@ -90,10 +112,12 @@ function Artefactos() {
     fetch("/artefactos/manifest.json").then((r) => r.json()).then((m: ArtMeta[]) => { setMeta(m); if (m[0]) setSel(m[0].id); });
   }, []);
   useEffect(() => {
-    if (!sel) return;
+    if (!sel || meta.length === 0) return;
     setData(null);
-    fetch(`/artefactos/${sel}.json`).then((r) => r.json()).then(setData).catch(() => setData(null));
-  }, [sel]);
+    const m0 = meta.find((m) => m.id === sel);
+    const p = m0?.fuente === "tabla" ? loadFuentes() : fetch(`/artefactos/${sel}.json`).then((r) => r.json());
+    p.then(setData).catch(() => setData(null));
+  }, [sel, meta]);
   const cur = meta.find((m) => m.id === sel);
   const rows = useMemo(() => {
     if (!data) return [] as { i: number; r: string[] }[];
@@ -110,7 +134,7 @@ function Artefactos() {
           {meta.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.titulo}</option>)}
         </select>
         <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
-        {cur && <a className="btn sec" href={`/artefactos/${cur.archivo}`} download>⬇ Este (.xlsx)</a>}
+        {cur && cur.archivo && <a className="btn sec" href={`/artefactos/${cur.archivo}`} download>⬇ Este (.xlsx)</a>}
         <a className="btn" href="/artefactos/artefactos.zip" download>⬇ Descargar todos</a>
       </div>
       {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
