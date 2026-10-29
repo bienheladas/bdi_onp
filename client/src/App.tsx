@@ -190,7 +190,7 @@ function Artefactos() {
         );
       })() : (
         <div className="tablewrap">
-          <table>
+          <table className={sel === "ADI-09" ? "wrap" : ""}>
             <thead><tr>{data.columns.map((c, i) => {
               const d = desc[sel]?.[c];
               const ind = sort && sort.col === i ? (sort.dir === "asc" ? " ▲" : " ▼") : "";

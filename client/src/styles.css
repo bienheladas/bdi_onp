@@ -26,6 +26,9 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:var(--blu
 .tablewrap { overflow:auto; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:calc(100vh - 170px); }
 table { border-collapse:collapse; width:100%; white-space:nowrap; }
 th, td { padding:7px 10px; border-bottom:1px solid #eef0f4; text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; }
+/* ADI-09: filas de alto automático, texto completo (celdas que envuelven) */
+table.wrap td { white-space:normal; word-break:break-word; overflow:visible; text-overflow:clip; vertical-align:top; max-width:340px; line-height:1.45; }
+table.wrap th { vertical-align:bottom; }
 th { background:var(--navy); color:#fff; position:sticky; top:0; font-weight:600; font-size:12.5px; cursor:help; }
 .hdrinfo { opacity:.55; font-size:10px; }
 
