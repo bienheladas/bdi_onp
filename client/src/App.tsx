@@ -109,8 +109,10 @@ function Artefactos() {
   const [sel, setSel] = useState<string>("");
   const [data, setData] = useState<ArtData | null>(null);
   const [q, setQ] = useState("");
+  const [desc, setDesc] = useState<Record<string, Record<string, string>>>({});
   useEffect(() => {
     fetch("/artefactos/manifest.json").then((r) => r.json()).then((m: ArtMeta[]) => { setMeta(m); if (m[0]) setSel(m[0].id); });
+    api.columnasDesc().then(setDesc).catch(() => setDesc({}));
   }, []);
   useEffect(() => {
     if (!sel || meta.length === 0) return;
@@ -145,7 +147,10 @@ function Artefactos() {
       {!data ? <p className="muted">Cargando…</p> : (
         <div className="tablewrap">
           <table>
-            <thead><tr>{data.columns.map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+            <thead><tr>{data.columns.map((c, i) => {
+              const d = desc[sel]?.[c];
+              return <th key={i} title={d ? `${c} — ${d}` : c}>{c}{d ? <span className="hdrinfo"> ⓘ</span> : null}</th>;
+            })}</tr></thead>
             <tbody>
               {rows.map(({ i, r }) => <tr key={i}>{r.map((c, ci) => {
                 const link = data.links[`${i}_${ci}`];

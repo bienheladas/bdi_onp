@@ -26,7 +26,8 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:var(--blu
 .tablewrap { overflow:auto; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:calc(100vh - 170px); }
 table { border-collapse:collapse; width:100%; white-space:nowrap; }
 th, td { padding:7px 10px; border-bottom:1px solid #eef0f4; text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; }
-th { background:var(--navy); color:#fff; position:sticky; top:0; font-weight:600; font-size:12.5px; }
+th { background:var(--navy); color:#fff; position:sticky; top:0; font-weight:600; font-size:12.5px; cursor:help; }
+.hdrinfo { opacity:.55; font-size:10px; }
 th.sortable { cursor:pointer; user-select:none; }
 th.sortable:hover { background:var(--blue); }
 .sort-ind { font-size:10px; }

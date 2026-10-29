@@ -503,6 +503,18 @@ app.get("/api/artefacto/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// Descripciones de cabecera de columnas (tooltips web; luego comentarios en Excel).
+// Fuente única: tabla artefacto_columna_desc. Devuelve {artefacto:{columna:desc}}.
+app.get("/api/columnas_desc", async (_req, res) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `select artefacto, columna, descripcion from artefacto_columna_desc`);
+    const out: Record<string, Record<string, string>> = {};
+    for (const r of rows) { (out[r.artefacto] ||= {})[r.columna] = r.descripcion; }
+    res.json(out);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ---------------- Mapa de flujo de datos (en vivo vs PG) ----------------
 // Nodos = BD + fuentes externas; aristas = flujos agregados origen->destino,
 // fusionadas por par {A,B} con flechas según sentido. Mismo criterio que el

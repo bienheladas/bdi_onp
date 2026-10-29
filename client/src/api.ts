@@ -26,6 +26,7 @@ export const api = {
   options: (m: string): Promise<Opt[]> => req(`/api/${m}/options`),
   oficinas: (): Promise<Opt[]> => req("/api/oficinas"),
   artefacto: (id: string): Promise<{ id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> }> => req(`/api/artefacto/${encodeURIComponent(id)}`),
+  columnasDesc: (): Promise<Record<string, Record<string, string>>> => req("/api/columnas_desc"),
   create: (m: string, body: any) => req(`/api/${m}`, { method: "POST", body: JSON.stringify(body) }),
   update: (m: string, id: any, body: any) => req(`/api/${m}/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (m: string, id: any) => req(`/api/${m}/${id}`, { method: "DELETE" }),
