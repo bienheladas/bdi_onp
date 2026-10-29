@@ -211,7 +211,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   "ADI-03": {
     titulo: "Catálogo AS-IS de Fuentes de Datos Institucionales (en vivo)",
     columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Edición", "Ambiente", "Servidor",
-      "Datacenter", "Sistema operativo", "Tamaño (GB)", "Tipo de fuente", "Tipo de información gestionada",
+      "Datacenter", "Sistema operativo", "Tamaño (GB)", "N° esquemas", "N° tablas", "Crecimiento (GB/mes)",
+      "Tipo de fuente", "Tipo de información gestionada",
       "Tipo(s) de proceso", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Área usuaria responsable",
       "Área técnica responsable", "Aplicaciones consumidoras",
       "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "Observaciones de uso actual"],
@@ -228,7 +229,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         m.desc_motor as "Motor", b.version_bd as "Versión", b.edicion as "Edición", a.desc_ambiente as "Ambiente",
         s.nombre_servidor as "Servidor", s.ubicacion as "Datacenter",
         nullif(trim(coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')),'') as "Sistema operativo",
-        b.tamano_gb as "Tamaño (GB)",
+        b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas",
+        b.crecimiento_gb as "Crecimiento (GB/mes)",
         coalesce(nullif(trim(b.tipo_bd),''),
           (case when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ 'aud' then 'Auditoría'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(bdi|dbi|integ|consolid)' then 'Integración/consolidación'
