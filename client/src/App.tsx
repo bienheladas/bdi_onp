@@ -104,6 +104,16 @@ async function loadFuentes(): Promise<ArtData> {
   });
   return { id: "ADI-01", titulo: "Fuentes de Información (ADI-01 consolidado + nuevas LCP)", columns, rows, links };
 }
+// Anchos por columna para ADI-09 (layout fijo): ancho a las listas largas (fuentes/
+// entidades), medio a los textos de análisis, angosto a los conteos.
+const W09: Record<string, number> = {
+  "N°": 42, "Tipo de proceso": 90, "Dominio funcional": 150, "Proceso de negocio": 175,
+  "N° apps": 52, "Aplicaciones": 150, "N° fuentes": 58, "Fuentes de datos / BD": 440,
+  "Entidades conceptuales (detectadas)": 290, "Tipo de información": 160,
+  "Cobertura del dominio": 230, "Vacíos": 230, "Solapamientos / redundancias": 245,
+  "Fragmentación": 245, "Desalineamiento vs. SIIP": 235, "Relevancia p/ modelo AS-IS": 235,
+  "Evidencia": 165,
+};
 function Artefactos() {
   const [meta, setMeta] = useState<ArtMeta[]>([]);
   const [sel, setSel] = useState<string>("");
@@ -191,6 +201,7 @@ function Artefactos() {
       })() : (
         <div className="tablewrap">
           <table className={sel === "ADI-09" ? "wrap" : ""}>
+            {sel === "ADI-09" && <colgroup>{data.columns.map((c, i) => <col key={i} style={{ width: (W09[c] || 180) + "px" }} />)}</colgroup>}
             <thead><tr>{data.columns.map((c, i) => {
               const d = desc[sel]?.[c];
               const ind = sort && sort.col === i ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
