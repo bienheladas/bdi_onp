@@ -210,17 +210,18 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-03": {
     titulo: "Catálogo AS-IS de Fuentes de Datos Institucionales (en vivo)",
-    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Ambiente", "Servidor",
-      "Datacenter", "Sistema operativo", "Tipo de fuente", "Tipo de información gestionada",
+    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Edición", "Ambiente", "Servidor",
+      "Datacenter", "Sistema operativo", "Tamaño (GB)", "Tipo de fuente", "Tipo de información gestionada",
       "Proceso / dominio", "Área usuaria responsable", "Área técnica responsable", "Consumidores",
       "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "Observaciones de uso actual"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
         b.nombre_bd as "Fuente / BD", b.desc_base_datos as "Descripción general",
-        m.desc_motor as "Motor", b.version_bd as "Versión", a.desc_ambiente as "Ambiente",
+        m.desc_motor as "Motor", b.version_bd as "Versión", b.edicion as "Edición", a.desc_ambiente as "Ambiente",
         s.nombre_servidor as "Servidor", s.ubicacion as "Datacenter",
         nullif(trim(coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')),'') as "Sistema operativo",
+        b.tamano_gb as "Tamaño (GB)",
         coalesce(nullif(trim(b.tipo_bd),''),
           case when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap|analit| bi )' then 'Analítica / DW'
                else 'Transaccional (relacional)' end) as "Tipo de fuente",
