@@ -20,7 +20,7 @@ FCOLS = [
     ("tipo_fuente","Tipo de fuente"), ("formato_medio","Formato / medio"),
     ("nivel_confidencialidad","Confidencialidad"), ("relacion_sistemas_procesos","Relación con sistemas / procesos"),
     ("hallazgos","Hallazgos"), ("vacios_inconsistencias","Vacíos / inconsistencias"),
-    ("ubicacion_ruta","Ubicación / ruta"), ("evidencia_revision","Evidencia"),
+    ("evidencia_revision","Evidencia (archivo/patrón)"),
     ("enlace","Enlace"), ("origen_fuente","Origen"),
 ]
 LIVE = ["ADI-03","ADI-04","ADI-05","ADI-07","ADI-08","ADI-09"]
