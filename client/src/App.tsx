@@ -108,7 +108,7 @@ async function loadFuentes(): Promise<ArtData> {
 // entidades), medio a los textos de análisis, angosto a los conteos.
 const W09: Record<string, number> = {
   "N°": 38, "Tipo de proceso": 72, "Dominio funcional": 135, "Proceso de negocio": 170,
-  "N° apps": 46, "Aplicaciones": 140, "N° fuentes": 46, "Fuentes de datos / BD": 460,
+  "N° apps": 46, "Aplicaciones": 230, "N° fuentes": 46, "Fuentes de datos / BD": 420,
   "Entidades conceptuales (detectadas)": 300, "Tipo de información": 150,
   "Cobertura del dominio": 230, "Vacíos": 230, "Solapamientos / redundancias": 245,
   "Fragmentación": 245, "Desalineamiento vs. SIIP": 235, "Relevancia p/ modelo AS-IS": 235,

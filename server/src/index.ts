@@ -399,7 +399,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         df.desc_dominio as "Dominio funcional",
         pn.desc_proceso as "Proceso de negocio",
         (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
-        (select string_agg(distinct a.id_app,' ') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
+        (select string_agg(distinct a.id_app || coalesce(' ('||nullif(trim(a.abreviatura_app),'')||')',''), ', ') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
         (select count(distinct abx.id_bd) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
         (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
