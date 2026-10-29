@@ -388,38 +388,33 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-09": {
     titulo: "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos (en vivo)",
-    columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "Cobertura",
-      "Relevancia (criticidad)", "N° apps", "Aplicaciones", "N° fuentes", "Fuentes de datos / BD",
-      "Entidades conceptuales (detectadas)", "Tipo de información", "Dispersión máx (entidad en N fuentes)",
-      "Solapamientos / redundancias (máx entre fuentes)", "Desalineamiento vs. SIIP", "Evidencia"],
+    columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "N° apps", "Aplicaciones",
+      "N° fuentes", "Fuentes de datos / BD", "Entidades conceptuales (detectadas)", "Tipo de información",
+      "Cobertura del dominio", "Vacíos", "Solapamientos / redundancias", "Fragmentación",
+      "Desalineamiento vs. SIIP", "Relevancia p/ modelo AS-IS", "Evidencia"],
     sql: `
       select
         (row_number() over (order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso))::int as "N°",
         tp.desc_tipo_proceso as "Tipo de proceso",
         df.desc_dominio as "Dominio funcional",
         pn.desc_proceso as "Proceso de negocio",
-        case when exists(select 1 from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso) then 'Con sistema' else 'Sin fuente (vacío)' end as "Cobertura",
-        (select case max(case upper(trim(a.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
-           when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
-         from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Relevancia (criticidad)",
         (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
         (select string_agg(distinct a.id_app,' ') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
         (select count(distinct abx.id_bd) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
         (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
         (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
-        (select max(gc.n)::int from (select fe2.entidad, count(distinct fe2.id_bd) n from fuente_entidad fe2 group by fe2.entidad) gc
-           where gc.entidad in (select distinct fe.entidad from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso)) as "Dispersión máx (entidad en N fuentes)",
-        (select max(x.n)::int from (
-           select count(*) n from fuente_entidad fa join fuente_entidad fb on fa.entidad=fb.entidad and fa.id_bd<fb.id_bd
-           where fa.id_bd in (select abx.id_bd from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)
-             and fb.id_bd in (select abx.id_bd from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)
-           group by fa.id_bd, fb.id_bd) x) as "Solapamientos / redundancias (máx entre fuentes)",
-        'Dominios de datos SIIP pendientes de definición (MC v.proyecto 18-09-2026)' as "Desalineamiento vs. SIIP",
+        coalesce(an.cobertura,'') as "Cobertura del dominio",
+        coalesce(an.vacios,'') as "Vacíos",
+        coalesce(an.solapamientos,'') as "Solapamientos / redundancias",
+        coalesce(an.fragmentacion,'') as "Fragmentación",
+        coalesce(an.desalineamiento_siip,'') as "Desalineamiento vs. SIIP",
+        coalesce(an.relevancia_asis,'') as "Relevancia p/ modelo AS-IS",
         'Catálogo físico (tabla/columna) + MC SIIP (F-26) · análisis automatizado' as "Evidencia"
       from proceso_negocio pn
       join dominio_funcional df on df.id_dominio=pn.id_dominio
       join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+      left join analisis_proceso_adi09 an on an.id_proceso=pn.id_proceso
       order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso
     `,
   },
