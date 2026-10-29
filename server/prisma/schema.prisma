@@ -84,8 +84,6 @@ model base_de_datos {
   desc_base_datos                                          String?
   tipo_bd                                                  String?                @db.VarChar(80)
   tipo_info_gest                                           String?
-  dominio_funcional_onp                                    String?
-  proceso_misional_onp                                     String?
   area_usuario_resp_onp                                    String?
   area_tecnica_resp_onp                                    String?
   tamano_gb                                                Decimal?               @db.Decimal(14, 2)
