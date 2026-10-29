@@ -179,7 +179,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
       "Tipo de relación / dependencia", "Mecanismo de integración", "Información intercambiada",
       "Proceso / dominio / área", "Frecuencia", "Responsable", "Limitaciones / restricciones",
-      "Riesgos generales", "Ref. diagrama editable", "Estado", "Detalle (job / DB link)"],
+      "Riesgos generales", "Detalle (job / DB link)"],
     sql: `
       select
         (row_number() over (order by i.mecanismo, i.id_integracion))::int as "N°",
@@ -207,14 +207,18 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=coalesce(i.id_bd_origen,i.id_bd_destino)),'') as "Proceso / dominio / área",
         case when i.mecanismo='DB Link' then 'En línea'
              when i.mecanismo='ETL DataStage' then 'Incremental diario *' else '' end as "Frecuencia",
-        case when i.mecanismo='DB Link' then 'DBA de ONP (OTI)'
+        case when i.mecanismo='DB Link' then 'OTI (DBA)'
              when i.mecanismo='ETL DataStage' then coalesce(nullif(trim(d.proveedor),''), nullif(trim(d.responsable),''), 'OTI (DataStage)') else '' end as "Responsable",
-        case when i.mecanismo='DB Link' then (case when dl.es_publico then 'Enlace público: usable por cualquier esquema de la BD origen' else 'Enlace privado (acotado al esquema dueño)' end)
-             when i.mecanismo='ETL DataStage' then (case when upper(coalesce(d.reprocesable,''))='NO' then 'Sin reproceso automático ante fallas' when upper(coalesce(d.reprocesable,''))='SI' then 'Reprocesable' else '' end)
+        case when i.mecanismo='DB Link' then
+               (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
+                                 and p.privilegio like 'SELECT%')
+                      and not exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
+                                 and p.privilegio ~ '(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)')
+                     then 'Solo lectura: el enlace no habilita escritura en el destino'
+                     when not dl.es_publico then 'Enlace privado: acotado al esquema propietario en la BD origen'
+                     else '' end)
              else '' end as "Limitaciones / restricciones",
         case when i.mecanismo='ETL DataStage' then 'Bajo' else coalesce(dl.nivel_riesgo,'') end as "Riesgos generales",
-        'Mapa de flujo de datos (Reportería · flujo_datos_onp.html)' as "Ref. diagrama editable",
-        coalesce(i.estado_enlace,'') as "Estado",
         case when i.mecanismo='DB Link' then
                'Enlace: '||coalesce(i.nombre_enlace,'')||'; Owner: '||coalesce(dl.owner,'')||'; Visibilidad: '||(case when dl.es_publico then 'Público' else 'Privado' end)||'; Usuario remoto: '||coalesce(dl.usuario_remoto,'')
              when i.mecanismo='ETL DataStage' then

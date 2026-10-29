@@ -137,6 +137,7 @@ function Artefactos() {
           {meta.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.titulo}</option>)}
         </select>
         <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+        {sel === "ADI-05" && <a className="btn sec" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">🗺 Mapa de flujo ↗</a>}
         {cur && cur.archivo && <a className="btn sec" href={`/artefactos/${cur.archivo}`} download>⬇ Este (.xlsx)</a>}
         <a className="btn" href="/artefactos/artefactos.zip" download>⬇ Descargar todos</a>
       </div>
