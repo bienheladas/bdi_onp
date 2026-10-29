@@ -236,7 +236,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-03": {
     titulo: "Catálogo AS-IS de Fuentes de Datos Institucionales (en vivo)",
-    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Edición", "Ambiente", "Servidor",
+    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Edición", "Packs licenciables en uso", "Ambiente", "Servidor",
       "Datacenter", "Sistema operativo", "Tamaño (GB)", "N° esquemas", "N° tablas", "Crecimiento (GB/mes)",
       "Tipo de fuente", "Tipo de información gestionada",
       "Tipo(s) de proceso", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Área usuaria responsable",
@@ -252,7 +252,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                coalesce('; soporta '||(select string_agg(distinct ap.id_app,', ' order by ap.id_app) from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd),'')||
                coalesce('; dominio '||(select string_agg(distinct df.desc_dominio,', ') from aplicacion_basedatos ab join aplicacion_proceso apx on apx.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=apx.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=b.id_bd),'')
              ),'')||' *','') end as "Descripción general",
-        m.desc_motor as "Motor", b.version_bd as "Versión", b.edicion as "Edición", a.desc_ambiente as "Ambiente",
+        m.desc_motor as "Motor", b.version_bd as "Versión", b.edicion as "Edición",
+        coalesce((select string_agg(distinct trim(x), ', ' order by trim(x)) from unnest(string_to_array(b.features_usadas, ',')) x where trim(x)<>''),'') as "Packs licenciables en uso",
+        a.desc_ambiente as "Ambiente",
         s.nombre_servidor as "Servidor", s.ubicacion as "Datacenter",
         nullif(trim(coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')),'') as "Sistema operativo",
         b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas",
@@ -320,7 +322,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-07": {
     titulo: "Matriz de Volumetría y Criticidad de Fuentes de Datos (en vivo)",
-    columns: ["ID", "Fuente / BD", "Criticidad", "Motor y versión", "Edición", "Ambiente", "Charset",
+    columns: ["ID", "Fuente / BD", "Criticidad", "Motor y versión", "Edición", "Packs licenciables en uso", "Ambiente", "Charset",
       "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
       "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
       "Crecimiento (GB/mes)", "Redo (GB/día)", "TDE", "Fecha volumetría",
@@ -334,7 +336,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
          from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd) as "Criticidad",
         (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
-        b.edicion as "Edición", a.desc_ambiente as "Ambiente", b.charset as "Charset",
+        b.edicion as "Edición",
+        coalesce((select string_agg(distinct trim(x), ', ' order by trim(x)) from unnest(string_to_array(b.features_usadas, ',')) x where trim(x)<>''),'') as "Packs licenciables en uso",
+        a.desc_ambiente as "Ambiente", b.charset as "Charset",
         b.tamano_gb as "Tamaño total (GB)", b.tamano_datos_gb as "Datos (GB)", b.tamano_indices_gb as "Índices (GB)",
         b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas", b.nro_indices as "N° índices",
         b.nro_vistas as "N° vistas", b.nro_procedimientos as "N° procedimientos", b.nro_triggers as "N° triggers",
