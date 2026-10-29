@@ -320,7 +320,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-07": {
     titulo: "Matriz de Volumetría y Criticidad de Fuentes de Datos (en vivo)",
-    columns: ["ID", "Fuente / BD", "Motor y versión", "Edición", "Ambiente", "Charset",
+    columns: ["ID", "Fuente / BD", "Criticidad", "Motor y versión", "Edición", "Ambiente", "Charset",
       "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
       "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
       "Crecimiento (GB/mes)", "Redo (GB/día)", "TDE", "Fecha volumetría",
@@ -329,7 +329,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
-        b.nombre_bd as "Fuente / BD", (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
+        b.nombre_bd as "Fuente / BD",
+        (select case max(case upper(trim(a.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
+           when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
+         from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd) as "Criticidad",
+        (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
         b.edicion as "Edición", a.desc_ambiente as "Ambiente", b.charset as "Charset",
         b.tamano_gb as "Tamaño total (GB)", b.tamano_datos_gb as "Datos (GB)", b.tamano_indices_gb as "Índices (GB)",
         b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas", b.nro_indices as "N° índices",
