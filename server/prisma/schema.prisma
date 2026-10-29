@@ -187,6 +187,7 @@ model fuentes_institucionales {
   id_fuente                  String    @id @db.VarChar(12)
   fuente_documental          String?   @db.VarChar(300)
   descripcion_proposito      String?
+  resumen                    String?
   area_responsable           String?   @db.VarChar(200)
   fecha_version_estado       String?   @db.VarChar(120)
   tipo_fuente                String?   @db.VarChar(120)

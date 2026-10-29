@@ -85,6 +85,7 @@ type ArtData = { id: string; titulo: string; columns: string[]; rows: string[][]
 // no de un Excel en duro. El resto de artefactos sí vienen de su <ID>.json.
 const FCOLS: [string, string][] = [
   ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"], ["descripcion_proposito", "Descripción / propósito"],
+  ["resumen", "Resumen / análisis del contenido"],
   ["area_responsable", "Área responsable"], ["fecha_version_estado", "Fecha / versión / estado"],
   ["tipo_fuente", "Tipo de fuente"], ["formato_medio", "Formato / medio"], ["nivel_confidencialidad", "Confidencialidad"],
   ["relacion_sistemas_procesos", "Relación con sistemas / procesos"], ["hallazgos", "Hallazgos"],
