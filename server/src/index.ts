@@ -214,7 +214,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Datacenter", "Sistema operativo", "Tamaño (GB)", "N° esquemas", "N° tablas", "Crecimiento (GB/mes)",
       "Tipo de fuente", "Tipo de información gestionada",
       "Tipo(s) de proceso", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Área usuaria responsable",
-      "Área técnica responsable", "Aplicaciones consumidoras",
+      "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° integ.", "Integra con (BD / fuentes)",
       "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "Observaciones de uso actual"],
     sql: `
       select
@@ -256,9 +256,16 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   from aplicacion_basedatos ab join aplicacion_area aa on aa.id_aplicacion=ab.id_aplicacion
                   join oficina o on trim(o.sigla)=trim(aa.sigla) where ab.id_bd=b.id_bd),
                  nullif(trim(b.area_usuario_resp_onp),''), '') as "Área usuaria responsable",
-        coalesce(nullif(trim(b.area_tecnica_resp_onp),''),
-                 (select string_agg(distinct nullif(trim(ap.gestor_resp),''),' · ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), '') as "Área técnica responsable",
+        coalesce((select string_agg(distinct nullif(trim(ap.gestor_resp),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), nullif(trim(b.gestor),''), '') as "Gestor",
+        coalesce((select string_agg(distinct nullif(trim(ap.nombre_lider_usuario),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), nullif(trim(b.resp_funcional),''), '') as "Responsable funcional",
         (select string_agg(distinct ap.id_app||' '||coalesce(ap.nombre_app,''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd) as "Aplicaciones consumidoras",
+        (select count(*) from integraciones ix where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd)::int as "N° integ.",
+        (select string_agg(distinct case when ix.id_bd_origen=b.id_bd
+            then coalesce(ix.mecanismo,'?')||' → '||coalesce(bd2.nombre_bd, ix.destino_externo,'?')
+            else coalesce(ix.mecanismo,'?')||' ← '||coalesce(bo2.nombre_bd, ix.origen_externo,'?') end, E'\n')
+          from integraciones ix left join base_de_datos bd2 on bd2.id_bd=ix.id_bd_destino
+          left join base_de_datos bo2 on bo2.id_bd=ix.id_bd_origen
+          where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) as "Integra con (BD / fuentes)",
         (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media *'
