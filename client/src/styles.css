@@ -28,6 +28,17 @@ table { border-collapse:collapse; width:100%; white-space:nowrap; }
 th, td { padding:7px 10px; border-bottom:1px solid #eef0f4; text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; }
 th { background:var(--navy); color:#fff; position:sticky; top:0; font-weight:600; font-size:12.5px; cursor:help; }
 .hdrinfo { opacity:.55; font-size:10px; }
+
+/* ADI-08 vista formulario (ficha por riesgo) */
+.formswrap { overflow:auto; max-height:calc(100vh - 170px); display:flex; flex-direction:column; gap:14px; }
+.riskcard { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 18px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+.rc-head { display:grid; grid-template-columns:max-content 1fr max-content 1fr; gap:6px 16px;
+  align-items:baseline; margin-bottom:10px; padding-bottom:10px; border-bottom:2px solid var(--navy); }
+.rc-row { display:grid; grid-template-columns:210px 1fr; gap:16px; padding:8px 0; border-top:1px solid #eef0f4; }
+.rc-k { font-weight:600; color:var(--navy); font-size:12.5px; cursor:help; }
+.rc-v { color:#1c2733; font-size:13px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+.rc-head .rc-v { font-weight:600; }
+@media (max-width:820px){ .rc-head{grid-template-columns:max-content 1fr} .rc-row{grid-template-columns:1fr} }
 th.sortable { cursor:pointer; user-select:none; }
 th.sortable:hover { background:var(--blue); }
 .sort-ind { font-size:10px; }

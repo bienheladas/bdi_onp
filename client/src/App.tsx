@@ -161,7 +161,34 @@ function Artefactos() {
         <a className="btn" href="/artefactos/artefactos.zip" download>⬇ Descargar todos</a>
       </div>
       {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
-      {!data ? <p className="muted">Cargando…</p> : (
+      {!data ? <p className="muted">Cargando…</p> : sel === "ADI-08" ? (() => {
+        // Vista FORMULARIO (una ficha por riesgo): campos cortos en rejilla (etiqueta+dato),
+        // campos de texto/análisis a todo el ancho (etiqueta + texto completo).
+        const maxlen = data.columns.map((_, ci) => rows.reduce((m, { r }) => Math.max(m, (r[ci] || "").length), 0));
+        const shortIdx = data.columns.map((_, i) => i).filter((i) => maxlen[i] <= 40);
+        const longIdx = data.columns.map((_, i) => i).filter((i) => maxlen[i] > 40);
+        return (
+          <div className="formswrap">
+            {rows.map(({ i, r }) => (
+              <div className="riskcard" key={i}>
+                <div className="rc-head">
+                  {shortIdx.flatMap((ci) => [
+                    <div className="rc-k" key={ci + "k"} title={desc[sel]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>,
+                    <div className="rc-v" key={ci + "v"}>{r[ci]}</div>,
+                  ])}
+                </div>
+                {longIdx.map((ci) => (
+                  <div className="rc-row" key={ci}>
+                    <div className="rc-k" title={desc[sel]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>
+                    <div className="rc-v">{r[ci]}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {rows.length === 0 && <p className="muted">Sin resultados.</p>}
+          </div>
+        );
+      })() : (
         <div className="tablewrap">
           <table>
             <thead><tr>{data.columns.map((c, i) => {
