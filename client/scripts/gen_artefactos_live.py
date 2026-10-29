@@ -63,13 +63,29 @@ def main():
         a = get("/artefacto/" + idp)
         write_xlsx(idp, a["columns"], a["rows"]); generated.append(idp)
         print(f"  {idp}  {len(a['columns'])}c x {len(a['rows'])}f")
+    # diagrama de flujo: para el zip se embebe un snapshot AUTOCONTENIDO (offline)
+    # del endpoint en vivo /api/flujo, inyectando window.__FLUJO__ en el mismo html.
+    flujo = ART.parent / "flujo_datos_onp.html"
+    flujo_offline = None
+    if flujo.exists():
+        try:
+            data = get("/flujo")
+            shell = flujo.read_text(encoding="utf-8")
+            snap = "<script>window.__FLUJO__=" + json.dumps(data, ensure_ascii=False) + ";</script>\n"
+            shell = shell.replace("<body>", "<body>\n" + snap, 1)
+            flujo_offline = shell
+            print(f"  flujo (snapshot) {len(data['nodes'])} nodos / {len(data['edges'])} aristas")
+        except Exception as e:
+            print(f"  flujo: no se pudo embeber snapshot ({e}); se usará el shell en vivo")
     # zip
     xlsxs = sorted(ART.glob("ADI-*.xlsx"))
     with zipfile.ZipFile(ART / "artefactos.zip", "w", zipfile.ZIP_DEFLATED) as z:
         for x in xlsxs:
             z.write(x, x.name)
-        flujo = ART.parent / "flujo_datos_onp.html"
-        if flujo.exists(): z.write(flujo, flujo.name)
+        if flujo_offline is not None:
+            z.writestr(flujo.name, flujo_offline)
+        elif flujo.exists():
+            z.write(flujo, flujo.name)
     print(f"artefactos.zip -> {len(xlsxs)} xlsx + diagrama  ({(ART/'artefactos.zip').stat().st_size} bytes)")
 
 

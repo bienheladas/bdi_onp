@@ -499,6 +499,109 @@ app.get("/api/artefacto/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------- Mapa de flujo de datos (en vivo vs PG) ----------------
+// Nodos = BD + fuentes externas; aristas = flujos agregados origen->destino,
+// fusionadas por par {A,B} con flechas según sentido. Mismo criterio que el
+// generador histórico, ahora servido en vivo desde Postgres.
+app.get("/api/flujo", async (_req, res) => {
+  try {
+    const SEP = "";
+    const SINK = new Set(["Archivo plano", "Dataset interno"]);
+    const MOTOR_COLOR: Record<string, string> = { "Oracle": "#C74634", "SQL Server": "#2B6CB0", "DB2": "#2C7A7B", "MySQL": "#3A7D44" };
+    const TIPO_LABEL: [string, string][] = [["mision", "Misional"], ["estrat", "Estratégico"], ["soporte", "Soporte"], ["complement", "Complementario"]];
+    const tipoLab = (tp: string) => { const u = (tp || "").toLowerCase(); for (const [p, l] of TIPO_LABEL) if (u.startsWith(p)) return l; return tp || "(otro)"; };
+    const isDev = (x: string | null) => !!x && (x.toUpperCase().replace(/\.+$/, "").endsWith("DEV") || x.toUpperCase().includes("DEV."));
+    const nid = (ext: string | null, idbd: number | null) => (ext ? "ext:" + ext : "bd:" + String(idbd));
+
+    const raw = await prisma.$queryRawUnsafe<any[]>(
+      `select i.origen_externo, i.id_bd_origen, i.id_bd_destino, i.destino_externo, i.mecanismo, count(*)::int n
+       from integraciones i group by 1,2,3,4,5`);
+    const bdRows = await prisma.$queryRawUnsafe<any[]>(
+      `select b.id_bd, b.nombre_bd, s.nombre_servidor, m.desc_motor, a.desc_ambiente,
+              b.version_bd, b.edicion, b.tamano_gb, b.nro_tablas, b.nro_esquemas, b.estado_bd
+       from base_de_datos b
+       left join servidor s on s.id_servidor=b.id_servidor
+       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
+       left join ambiente a on a.id_ambiente=b.id_ambiente`);
+    const bd = new Map<number, any>(bdRows.map((r) => [r.id_bd, r]));
+    const tipoRows = await prisma.$queryRawUnsafe<any[]>(
+      `select b.id_bd, tp.desc_tipo_proceso tp, count(distinct pn.id_proceso)::int n
+       from base_de_datos b
+       join aplicacion_basedatos ab on ab.id_bd=b.id_bd
+       join aplicacion a on a.id=ab.id_aplicacion
+       join aplicacion_proceso ap on ap.id_aplicacion=a.id
+       join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+       join dominio_funcional df on df.id_dominio=pn.id_dominio
+       join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+       group by b.id_bd, tp.desc_tipo_proceso`);
+    const tiposBd = new Map<number, Record<string, number>>();
+    for (const r of tipoRows) { const m = tiposBd.get(r.id_bd) || {}; m[r.tp] = r.n; tiposBd.set(r.id_bd, m); }
+
+    const agg = new Map<string, { total: number; mec: Record<string, number> }>();
+    const deg: Record<string, number> = {};
+    for (const r of raw) {
+      const oe = r.origen_externo, de = r.destino_externo, ido = r.id_bd_origen, idd = r.id_bd_destino, mec = r.mecanismo, n = r.n;
+      if (isDev(oe) || isDev(de)) continue;
+      const src = (oe || ido) ? nid(oe, ido) : null;
+      const dst = idd ? nid(null, idd) : (de ? nid(de, null) : null);
+      if (!src || !dst || src === dst) continue;
+      const k = src + "" + dst;
+      const e = agg.get(k) || { total: 0, mec: {} };
+      e.total += n; e.mec[mec] = (e.mec[mec] || 0) + n; agg.set(k, e);
+      deg[src] = (deg[src] || 0) + n; deg[dst] = (deg[dst] || 0) + n;
+    }
+
+    const nodes = new Map<string, any>();
+    const addNode = (nodeId: string) => {
+      if (nodes.has(nodeId)) return;
+      if (nodeId.startsWith("ext:")) {
+        const label = nodeId.slice(4);
+        if (SINK.has(label)) nodes.set(nodeId, { id: nodeId, label, color: "#9E9E9E", group: "sink", tip: `<b>${label}</b><br>Destino no-BD (salida DataStage)` });
+        else nodes.set(nodeId, { id: nodeId, label, color: "#E8A33D", group: "externa", tip: `<b>${label}</b><br>Fuente externa / destino no mapeado` });
+      } else {
+        const idb = parseInt(nodeId.slice(3), 10); const r = bd.get(idb); const tipos = tiposBd.get(idb) || {};
+        const tiposStr = Object.keys(tipos).length ? Object.entries(tipos).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${tipoLab(t)} (${n})`).join(", ") : "(sin clasificar)";
+        if (!r) nodes.set(nodeId, { id: nodeId, label: nodeId, color: "#777", group: "bd", tip: `<b>${nodeId}</b><br>Soporta procesos: ${tiposStr}` });
+        else {
+          const color = MOTOR_COLOR[r.desc_motor] || "#607D8B";
+          const tip = `<b>${r.nombre_bd}</b> <span style='color:#aaa'>(BD · ${r.desc_motor || "-"})</span><br>` +
+            `Soporta procesos: ${tiposStr}<br>` +
+            `Servidor: ${r.nombre_servidor || "-"} &nbsp; Ambiente: ${r.desc_ambiente || "-"}<br>` +
+            `Tamaño: ${r.tamano_gb ?? "?"} GB &nbsp; Tablas: ${r.nro_tablas ?? "?"} &nbsp; Esquemas: ${r.nro_esquemas ?? "?"}<br>` +
+            `Estado: ${r.estado_bd || "-"} &nbsp; Integraciones: ${deg[nodeId] || 0}`;
+          nodes.set(nodeId, { id: nodeId, label: r.nombre_bd, color, group: "bd", tip });
+        }
+      }
+    };
+    for (const k of agg.keys()) { const [s, d] = k.split(""); addNode(s); addNode(d); }
+
+    const MEC_COLOR: Record<string, string> = { "ETL DataStage": "#38A169", "DB Link": "#9F7AEA", "mixto": "#A0AEC0" };
+    const pairs = new Map<string, Record<string, { total: number; mec: Record<string, number> }>>();
+    for (const [k, info] of agg.entries()) {
+      const [s, d] = k.split(""); const pk = [s, d].sort().join("");
+      const p = pairs.get(pk) || {}; p[s + "" + d] = info; pairs.set(pk, p);
+    }
+    const edges: any[] = []; let maxw = 1;
+    for (const [pk, dirs] of pairs.entries()) {
+      const [a, b] = pk.split("");
+      const fwd = dirs[a + "" + b], bwd = dirs[b + "" + a];
+      const total = (fwd ? fwd.total : 0) + (bwd ? bwd.total : 0); maxw = Math.max(maxw, total);
+      const mecset = new Set<string>(); for (const dd of [fwd, bwd]) if (dd) Object.keys(dd.mec).forEach((m) => mecset.add(m));
+      let col: string, dash: boolean, mlab: string;
+      if (mecset.size === 1 && mecset.has("ETL DataStage")) { col = MEC_COLOR["ETL DataStage"]; dash = false; mlab = "Flujo DataStage"; }
+      else if (mecset.size === 1 && mecset.has("DB Link")) { col = MEC_COLOR["DB Link"]; dash = true; mlab = "Flujo DB Link"; }
+      else { col = MEC_COLOR["mixto"]; dash = false; mlab = "DataStage + DB Link"; }
+      const lines: string[] = [];
+      if (fwd) lines.push(`${nodes.get(a).label} → ${nodes.get(b).label}: ${fwd.total} (` + Object.entries(fwd.mec).map(([k2, v]) => `${k2}:${v}`).join(", ") + ")");
+      if (bwd) lines.push(`${nodes.get(b).label} → ${nodes.get(a).label}: ${bwd.total} (` + Object.entries(bwd.mec).map(([k2, v]) => `${k2}:${v}`).join(", ") + ")");
+      const bidir = !!fwd && !!bwd;
+      const tip = `<b>${mlab}${bidir ? " (bidireccional)" : ""}</b><br>` + lines.join("<br>");
+      edges.push({ from: a, to: b, value: total, arrowTo: !!fwd, arrowFrom: !!bwd, color: col, dashes: dash, tip });
+    }
+    res.json({ nodes: [...nodes.values()], edges, maxw });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ---------------- CRUD genérico (entidades principales) ----------------
 app.get("/api/:model", async (req, res) => {
   try {
