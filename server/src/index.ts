@@ -248,7 +248,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
       "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
       "Crecimiento (GB/mes)", "Redo (GB/día)", "TDE", "Fecha volumetría",
-      "Servidor", "Datafiles asignados (GB)", "Datafiles usados (GB)", "% uso datafiles"],
+      "Servidor", "Datafiles asignados (GB)", "Datafiles usados (GB)", "% uso datafiles",
+      "Disco servidor asignado (GB)", "Disco servidor usado (GB)", "% uso disco servidor"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
@@ -262,7 +263,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         b.tde_estado as "TDE", b.fec_volumetria::text as "Fecha volumetría",
         s.nombre_servidor as "Servidor", b.tamano_asignado_gb as "Datafiles asignados (GB)",
         b.tamano_usado_gb as "Datafiles usados (GB)",
-        case when b.tamano_asignado_gb>0 then round(b.tamano_usado_gb*100/b.tamano_asignado_gb,1) end as "% uso datafiles"
+        case when b.tamano_asignado_gb>0 then round(b.tamano_usado_gb*100/b.tamano_asignado_gb,1) end as "% uso datafiles",
+        s.disco_asignado_gb as "Disco servidor asignado (GB)", s.disco_utilizado_gb as "Disco servidor usado (GB)",
+        case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% uso disco servidor"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
