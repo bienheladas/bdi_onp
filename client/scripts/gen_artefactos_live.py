@@ -21,7 +21,7 @@ FCOLS = [
     ("nivel_confidencialidad","Confidencialidad"), ("relacion_sistemas_procesos","Relación con sistemas / procesos"),
     ("hallazgos","Hallazgos"), ("vacios_inconsistencias","Vacíos / inconsistencias"),
     ("evidencia_revision","Evidencia (archivo/patrón)"),
-    ("enlace","Enlace"), ("origen_fuente","Origen"),
+    ("enlace","Enlace"),
 ]
 LIVE = ["ADI-03","ADI-04","ADI-05","ADI-07","ADI-08","ADI-09"]
 TITULOS = {

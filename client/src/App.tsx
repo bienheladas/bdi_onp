@@ -90,7 +90,7 @@ const FCOLS: [string, string][] = [
   ["tipo_fuente", "Tipo de fuente"], ["formato_medio", "Formato / medio"], ["nivel_confidencialidad", "Confidencialidad"],
   ["relacion_sistemas_procesos", "Relación con sistemas / procesos"], ["hallazgos", "Hallazgos"],
   ["vacios_inconsistencias", "Vacíos / inconsistencias"],
-  ["evidencia_revision", "Evidencia (archivo/patrón)"], ["enlace", "Enlace"], ["origen_fuente", "Origen"],
+  ["evidencia_revision", "Evidencia (archivo/patrón)"], ["enlace", "Enlace"],
 ];
 async function loadFuentes(): Promise<ArtData> {
   const d = await api.list("fuentes_institucionales", "", 0, 500, null);
