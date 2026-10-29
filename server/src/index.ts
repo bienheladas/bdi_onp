@@ -421,75 +421,18 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-08": {
     titulo: "Brechas, Riesgos y Restricciones del Ecosistema de Datos (en vivo)",
-    columns: ["Tema", "Brecha / Riesgo", "Severidad", "Alcance", "Evidencia / dato", "Recomendación"],
+    columns: ["ID", "Tipo", "Tema", "Severidad", "Descripción", "Elemento afectado",
+      "Evidencia / sustento", "Causa preliminar", "Impacto", "Riesgo para la implementación",
+      "Recomendación inicial", "Relación con la BD Integrada", "Consideraciones de seguridad"],
     sql: `
-      with v as (select b.id_bd, b.version_bd, b.edicion, b.estado_bd, m.desc_motor motor
-                 from base_de_datos b join motor_bd m on m.id_motor_bd=b.id_motor_bd
-                 where coalesce(b.estado_bd,'')<>'Fuera de alcance')
-      select 1 ord, 'Documentación' as "Tema", 'Modelo físico poco documentado (comentarios)' as "Brecha / Riesgo", 'Alta' as "Severidad",
-        (select count(*) from (select e.id_esquema from esquema e join tabla t on t.id_esquema=e.id_esquema join columna c on c.id_tabla=t.id_tabla where not e.es_ruido group by e.id_esquema having count(c.comentario)=0) z)::text||' esquemas con 0 comentarios' as "Alcance",
-        'BD core <15% columnas comentadas (BDPRFNT 0%, ONPPROD 5.7%, BDPRDBDI 8.3%, BDPR11G2 14.6%)' as "Evidencia / dato",
-        'Exigir diccionario de datos y comentarios en el modelo; priorizar BD misionales y candidatas a maestro' as "Recomendación"
-      union all
-      select 2, 'Versiones', 'Oracle 11g/10g fuera de soporte', 'Crítica',
-        (select count(*) from v where lower(motor) like '%oracle%' and (version_bd like '11.%' or version_bd like '10.%'))::text||' BD Oracle',
-        'Oracle 11.2/10g sin soporte del fabricante (Premier/Extended vencido)',
-        'Plan de migración a 19c; priorizar por criticidad y datos sensibles'
-      union all
-      select 3, 'Versiones', 'SQL Server fuera de soporte (≤2012/2008/7)', 'Crítica',
-        (select count(*) from v where lower(motor) like '%sql%' and version_bd ~ '^(7|2000|2005|2008|2012)')::text||' BD SQL Server',
-        'SQL Server 2012 (EOL jul-2022) ×54, 2008 R2 y SQL Server 7 ×2',
-        'Migrar a versión soportada (2019/2022); aislar las SQL 7 de inmediato'
-      union all
-      select 4, 'Versiones', 'DB2 y MySQL obsoletos', 'Alta',
-        (select count(*) from v where lower(motor) like '%db2%' or lower(motor) like '%mysql%')::text||' BD (DB2 9.5/10.x, MySQL 5.0)',
-        'DB2 9.5/10.1/10.5 y MySQL 5.0.95 sin soporte',
-        'Evaluar migración/retiro; reforzar respaldo mientras persistan'
-      union all
-      select 5, 'Versiones', 'Servidores con soporte vencido', 'Alta',
-        (select count(*) from servidor where fec_fin_soporte_bd is not null and fec_fin_soporte_bd < current_date)::text||' servidores',
-        'SO/HW fuera de soporte (AIX 6.1, CentOS 5.6, etc.)',
-        'Renovar soporte o plan de reemplazo de infraestructura'
-      union all
-      select 6, 'Licenciamiento', 'Oracle Enterprise Edition + packs licenciables en uso', 'Media',
-        (select count(*) from v where edicion='Enterprise')::text||' BD Enterprise; '||
-        (select count(*) from base_de_datos where features_usadas is not null)::text||' con packs licenciables en uso',
-        'Enterprise = licencia premium por core; además packs aparte detectados en uso (dba_feature_usage_statistics): Diagnostic Pack y SQL Tuning Advisor (Tuning Pack)',
-        'Revisar uso real y licenciamiento de los packs; consolidar y optar por Standard donde aplique'
-      union all
-      select 7, 'Seguridad de integraciones', 'DB Links públicos (acoplamiento no controlado)', 'Alta',
-        (select count(*) from integracion_dblink where es_publico)::text||' DB Links públicos (de '||(select count(*) from integracion_dblink)::text||' reales, 24 instancias)',
-        'Links PUBLIC usables por cualquier esquema; credenciales embebidas → acceso cruzado/lateral',
-        'Convertir a privados por esquema; inventariar consumidores antes de dar de baja BD'
-      union all
-      select 8, 'Seguridad de integraciones', 'DB Links de alto riesgo (público + usuario remoto privilegiado)', 'Crítica',
-        (select count(*) from integracion_dblink where nivel_riesgo='Critico')::text||' DB Links críticos; '||
-        (select count(*) from integracion_dblink where usuario_remoto_privilegiado)::text||' con usuario remoto DBA/ANY',
-        'Links PUBLIC cuyo usuario remoto tiene DBA/privilegios ANY en el destino (ej. SNPCONNECT entrelaza EMI18/19/20↔NSP18/20; USUA_DBL_BDI_SGPSYS→BDPRD11G) → acceso privilegiado lateral',
-        'Reemplazar por usuarios remotos de mínimo privilegio y hacer privados los links; rotar credenciales embebidas'
-      union all
-      select 9, 'Seguridad de cuentas', 'Cuentas con contraseña por defecto', 'Baja',
-        (select count(*) from usuario_bd where pwd_default)::text||' cuentas con pwd de fábrica; '||
-        (select count(*) from usuario_bd where pwd_default and estado_cuenta like '%LOCKED%')::text||' bloqueadas/expiradas, '||
-        (select count(*) from usuario_bd where pwd_default and estado_cuenta='OPEN')::text||' ABIERTA',
-        'DBA_USERS_WITH_DEFPWD: casi todas son cuentas de muestra/sistema ya bloqueadas; única ABIERTA = PERFSTAT@EMI18PRD (Statspack)',
-        'Cambiar/eliminar la cuenta abierta (PERFSTAT); dar de baja cuentas de muestra no usadas como hardening'
-      union all
-      select 10, 'Seguridad de datos', 'Datos en reposo sin cifrado (TDE inactivo)', 'Alta',
-        (select count(*) from base_de_datos b join motor_bd m on m.id_motor_bd=b.id_motor_bd where lower(m.desc_motor) like '%oracle%' and b.fec_volumetria is not null and coalesce(b.tde_estado,'')<>'OPEN')::text||' BD Oracle sin TDE activo (de 24 medidas)',
-        'Wallet TDE cerrado/no disponible y 0 tablespaces/columnas cifradas, pese a datos personales (afiliados, RENIEC/SUNAT)',
-        'Evaluar TDE o cifrado de almacenamiento en BD con datos sensibles; priorizar las de mayor volumen'
-      union all
-      select 11, 'Continuidad operativa', 'BD en NOARCHIVELOG (sin recuperación punto-en-tiempo)', 'Crítica',
-        (select count(*) from base_de_datos where modo_archivado='NOARCHIVELOG')::text||' BD en NOARCHIVELOG',
-        'Sin archivado de redo no hay recuperación a un instante ni respaldo en caliente consistente (ej. EMI18/EMI19/EMI20)',
-        'Activar ARCHIVELOG en las BD productivas y validar la estrategia de respaldo RMAN'
-      union all
-      select 12, 'Calidad / salud', 'Objetos de BD inválidos', 'Media',
-        (select coalesce(sum(nro_objetos_invalidos),0) from base_de_datos)::text||' objetos INVALID en '||(select count(*) from base_de_datos where coalesce(nro_objetos_invalidos,0)>0)::text||' BD',
-        'Objetos (vistas/packages/procedimientos) en estado INVALID (EMI19=80, BDPR11G2=72) → dependencias rotas o despliegues incompletos',
-        'Recompilar (utlrp) y revisar dependencias; usar como indicador de salud del esquema'
-      order by ord
+      select id as "ID", coalesce(tipo,'') as "Tipo", coalesce(tema,'') as "Tema",
+        coalesce(severidad,'') as "Severidad", coalesce(descripcion,'') as "Descripción",
+        coalesce(elemento_afectado,'') as "Elemento afectado", coalesce(evidencia,'') as "Evidencia / sustento",
+        coalesce(causa_preliminar,'') as "Causa preliminar", coalesce(impacto,'') as "Impacto",
+        coalesce(riesgo_implementacion,'') as "Riesgo para la implementación",
+        coalesce(recomendacion,'') as "Recomendación inicial", coalesce(relacion_bdi,'') as "Relación con la BD Integrada",
+        coalesce(consideraciones_seguridad,'') as "Consideraciones de seguridad"
+      from riesgo_adi08 order by orden
     `,
   },
 };
