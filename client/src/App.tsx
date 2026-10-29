@@ -107,12 +107,12 @@ async function loadFuentes(): Promise<ArtData> {
 // Anchos por columna para ADI-09 (layout fijo): ancho a las listas largas (fuentes/
 // entidades), medio a los textos de análisis, angosto a los conteos.
 const W09: Record<string, number> = {
-  "N°": 42, "Tipo de proceso": 90, "Dominio funcional": 150, "Proceso de negocio": 175,
-  "N° apps": 52, "Aplicaciones": 150, "N° fuentes": 58, "Fuentes de datos / BD": 440,
-  "Entidades conceptuales (detectadas)": 290, "Tipo de información": 160,
+  "N°": 38, "Tipo de proceso": 72, "Dominio funcional": 135, "Proceso de negocio": 170,
+  "N° apps": 46, "Aplicaciones": 140, "N° fuentes": 46, "Fuentes de datos / BD": 460,
+  "Entidades conceptuales (detectadas)": 300, "Tipo de información": 150,
   "Cobertura del dominio": 230, "Vacíos": 230, "Solapamientos / redundancias": 245,
   "Fragmentación": 245, "Desalineamiento vs. SIIP": 235, "Relevancia p/ modelo AS-IS": 235,
-  "Evidencia": 165,
+  "Evidencia": 160,
 };
 function Artefactos() {
   const [meta, setMeta] = useState<ArtMeta[]>([]);
