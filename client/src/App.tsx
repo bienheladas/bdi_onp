@@ -110,27 +110,44 @@ function Artefactos() {
   const [data, setData] = useState<ArtData | null>(null);
   const [q, setQ] = useState("");
   const [desc, setDesc] = useState<Record<string, Record<string, string>>>({});
+  const [sort, setSort] = useState<{ col: number; dir: "asc" | "desc" } | null>(null);
   useEffect(() => {
     fetch("/artefactos/manifest.json").then((r) => r.json()).then((m: ArtMeta[]) => { setMeta(m); if (m[0]) setSel(m[0].id); });
     api.columnasDesc().then(setDesc).catch(() => setDesc({}));
   }, []);
   useEffect(() => {
     if (!sel || meta.length === 0) return;
-    setData(null);
+    setData(null); setSort(null);
     const m0 = meta.find((m) => m.id === sel);
     const p = m0?.fuente === "tabla" ? loadFuentes()
       : m0?.fuente === "live" ? api.artefacto(sel)
       : fetch(`/artefactos/${sel}.json`).then((r) => r.json());
     p.then(setData).catch(() => setData(null));
   }, [sel, meta]);
+  // clic en cabecera: asc -> desc -> sin orden
+  const toggleSort = (ci: number) => setSort((s) =>
+    s && s.col === ci ? (s.dir === "asc" ? { col: ci, dir: "desc" } : null) : { col: ci, dir: "asc" });
   const cur = meta.find((m) => m.id === sel);
   const rows = useMemo(() => {
     if (!data) return [] as { i: number; r: string[] }[];
-    const all = data.rows.map((r, i) => ({ i, r }));
-    if (!q.trim()) return all;
-    const s = q.toLowerCase();
-    return all.filter(({ r }) => r.some((c) => c.toLowerCase().includes(s)));
-  }, [data, q]);
+    let all = data.rows.map((r, i) => ({ i, r }));
+    if (q.trim()) { const s = q.toLowerCase(); all = all.filter(({ r }) => r.some((c) => c.toLowerCase().includes(s))); }
+    if (sort) {
+      const isNum = (v: string) => /^-?\d+(\.\d+)?$/.test(v.replace(/\s/g, "").replace("%", ""));
+      const num = (v: string) => parseFloat(v.replace(/\s/g, "").replace("%", ""));
+      const cmp = (a: string, b: string) => {
+        // vacíos siempre "mayores" => al final en asc, arriba en desc (para cazar huecos)
+        if (a === "" || b === "") return a === b ? 0 : a === "" ? 1 : -1;
+        if (isNum(a) && isNum(b)) return num(a) - num(b);
+        return a.localeCompare(b, "es", { numeric: true, sensitivity: "base" });
+      };
+      all = all.slice().sort((x, y) => {
+        const base = cmp(x.r[sort.col] ?? "", y.r[sort.col] ?? "");
+        return sort.dir === "desc" ? -base : base;
+      });
+    }
+    return all;
+  }, [data, q, sort]);
   return (
     <>
       <div className="toolbar">
@@ -149,7 +166,10 @@ function Artefactos() {
           <table>
             <thead><tr>{data.columns.map((c, i) => {
               const d = desc[sel]?.[c];
-              return <th key={i} title={d ? `${c} — ${d}` : c}>{c}{d ? <span className="hdrinfo"> ⓘ</span> : null}</th>;
+              const ind = sort && sort.col === i ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+              return <th key={i} className="sortable" onClick={() => toggleSort(i)}
+                title={d ? `${c} — ${d}` : c}>{c}{d ? <span className="hdrinfo"> ⓘ</span> : null}
+                <span className="sort-ind">{ind}</span></th>;
             })}</tr></thead>
             <tbody>
               {rows.map(({ i, r }) => <tr key={i}>{r.map((c, ci) => {
