@@ -536,6 +536,18 @@ app.get("/api/flujo", async (_req, res) => {
        group by b.id_bd, tp.desc_tipo_proceso`);
     const tiposBd = new Map<number, Record<string, number>>();
     for (const r of tipoRows) { const m = tiposBd.get(r.id_bd) || {}; m[r.tp] = r.n; tiposBd.set(r.id_bd, m); }
+    // dominios funcionales asignados a cada BD (vía aplicaciones) — para el filtro por dominio
+    const domRows = await prisma.$queryRawUnsafe<any[]>(
+      `select distinct b.id_bd, df.desc_dominio
+       from base_de_datos b
+       join aplicacion_basedatos ab on ab.id_bd=b.id_bd
+       join aplicacion a on a.id=ab.id_aplicacion
+       join aplicacion_proceso ap on ap.id_aplicacion=a.id
+       join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+       join dominio_funcional df on df.id_dominio=pn.id_dominio`);
+    const domBd = new Map<number, string[]>();
+    for (const r of domRows) { const a = domBd.get(r.id_bd) || []; a.push(r.desc_dominio); domBd.set(r.id_bd, a); }
+    const allDomains = [...new Set(domRows.map((r) => r.desc_dominio))].sort((a, b) => a.localeCompare(b));
 
     const agg = new Map<string, { total: number; mec: Record<string, number> }>();
     const deg: Record<string, number> = {};
@@ -556,20 +568,23 @@ app.get("/api/flujo", async (_req, res) => {
       if (nodes.has(nodeId)) return;
       if (nodeId.startsWith("ext:")) {
         const label = nodeId.slice(4);
-        if (SINK.has(label)) nodes.set(nodeId, { id: nodeId, label, color: "#9E9E9E", group: "sink", tip: `<b>${label}</b><br>Destino no-BD (salida DataStage)` });
-        else nodes.set(nodeId, { id: nodeId, label, color: "#E8A33D", group: "externa", tip: `<b>${label}</b><br>Fuente externa / destino no mapeado` });
+        if (SINK.has(label)) nodes.set(nodeId, { id: nodeId, label, color: "#9E9E9E", group: "sink", domains: [], tip: `<b>${label}</b><br>Destino no-BD (salida DataStage)` });
+        else nodes.set(nodeId, { id: nodeId, label, color: "#E8A33D", group: "externa", domains: [], tip: `<b>${label}</b><br>Fuente externa / destino no mapeado` });
       } else {
         const idb = parseInt(nodeId.slice(3), 10); const r = bd.get(idb); const tipos = tiposBd.get(idb) || {};
+        const doms = domBd.get(idb) || [];
         const tiposStr = Object.keys(tipos).length ? Object.entries(tipos).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${tipoLab(t)} (${n})`).join(", ") : "(sin clasificar)";
-        if (!r) nodes.set(nodeId, { id: nodeId, label: nodeId, color: "#777", group: "bd", tip: `<b>${nodeId}</b><br>Soporta procesos: ${tiposStr}` });
+        const domStr = doms.length ? doms.slice().sort().join(", ") : "(sin dominio asignado)";
+        if (!r) nodes.set(nodeId, { id: nodeId, label: nodeId, color: "#777", group: "bd", domains: doms, tip: `<b>${nodeId}</b><br>Dominios: ${domStr}<br>Soporta procesos: ${tiposStr}` });
         else {
           const color = MOTOR_COLOR[r.desc_motor] || "#607D8B";
           const tip = `<b>${r.nombre_bd}</b> <span style='color:#aaa'>(BD · ${r.desc_motor || "-"})</span><br>` +
+            `Dominios: ${domStr}<br>` +
             `Soporta procesos: ${tiposStr}<br>` +
             `Servidor: ${r.nombre_servidor || "-"} &nbsp; Ambiente: ${r.desc_ambiente || "-"}<br>` +
             `Tamaño: ${r.tamano_gb ?? "?"} GB &nbsp; Tablas: ${r.nro_tablas ?? "?"} &nbsp; Esquemas: ${r.nro_esquemas ?? "?"}<br>` +
             `Estado: ${r.estado_bd || "-"} &nbsp; Integraciones: ${deg[nodeId] || 0}`;
-          nodes.set(nodeId, { id: nodeId, label: r.nombre_bd, color, group: "bd", tip });
+          nodes.set(nodeId, { id: nodeId, label: r.nombre_bd, color, group: "bd", domains: doms, tip });
         }
       }
     };
@@ -598,7 +613,7 @@ app.get("/api/flujo", async (_req, res) => {
       const tip = `<b>${mlab}${bidir ? " (bidireccional)" : ""}</b><br>` + lines.join("<br>");
       edges.push({ from: a, to: b, value: total, arrowTo: !!fwd, arrowFrom: !!bwd, color: col, dashes: dash, tip });
     }
-    res.json({ nodes: [...nodes.values()], edges, maxw });
+    res.json({ nodes: [...nodes.values()], edges, maxw, domains: allDomains });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

@@ -17,6 +17,17 @@
   label{font-size:13px;color:#cbd5e0}
   #cnt{font-size:12px;color:#8a93a2}
   #err{display:none;padding:20px;color:#f0a0a0}
+  #dompanel{position:absolute;top:66px;left:12px;z-index:9;background:#0c0f14ee;border:1px solid #4a5568;
+    border-radius:8px;padding:8px 10px;max-height:calc(100vh - 92px);overflow:auto;width:240px;
+    box-shadow:0 6px 20px rgba(0,0,0,.5);font-size:12.5px}
+  #dompanel .dphdr{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:600;color:#cbd5e0}
+  #dompanel .dphdr button{background:#2d3748;color:#cbd5e0;border:1px solid #4a5568;border-radius:4px;
+    padding:2px 7px;cursor:pointer;font-size:11px}
+  #dompanel label{display:flex;gap:7px;align-items:flex-start;padding:3px 2px;color:#dfe6ee;cursor:pointer;line-height:1.3}
+  #dompanel label:hover{background:#1b2230;border-radius:4px}
+  #dompanel .dn{color:#7f8a99;font-size:11px}
+  #dptoggle{background:#2d3748;color:#e6e6e6;border:1px solid #4a5568;border-radius:5px;padding:4px 10px;
+    cursor:pointer;font-size:12px}
 </style></head><body>
 <div id="bar">
   <h1>Flujo de datos ONP — fuentes e integraciones</h1>
@@ -30,6 +41,7 @@
     border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">📌 Fijar vista</button>
   <button id="unpin" style="background:#2d3748;color:#cbd5e0;border:1px solid #4a5568;
     border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">Restablecer</button>
+  <button id="dptoggle">🧩 Dominios</button>
   <span style="color:#667;font-size:11px">NODOS:</span>
   <span class="leg"><span class="sw" style="background:#C74634"></span>Oracle</span>
   <span class="leg"><span class="sw" style="background:#2B6CB0"></span>SQL Server</span>
@@ -43,6 +55,12 @@
   <span id="cnt"></span>
 </div>
 <div id="net"></div><div id="tip"></div>
+<div id="dompanel" style="display:none">
+  <div class="dphdr">Dominios funcionales
+    <button id="dall">Todos</button><button id="dnone">Ninguno</button></div>
+  <div id="dlist"></div>
+  <div class="dn" style="margin-top:6px">Muestra solo las BD con el dominio asignado (vía aplicación) y los nodos conectados a ellas.</div>
+</div>
 <div id="err"></div>
 <script>
 // Datos del flujo (mismo criterio que el artefacto ADI-05): si hay un snapshot
@@ -56,8 +74,10 @@
     el.textContent='No se pudo cargar el flujo: '+e.message;});
 
 function init(DATA){
-const NODES=DATA.nodes, EDGES=DATA.edges, MAXW=DATA.maxw||1;
+const NODES=DATA.nodes, EDGES=DATA.edges, MAXW=DATA.maxw||1, DOMAINS=DATA.domains||[];
 const mwEl=document.getElementById('mw'); mwEl.max=MAXW;
+// meta por nodo (grupo + dominios) para el filtro
+const META={}; NODES.forEach(n=>{META[n.id]={grp:n.group,dom:n.domains||[]};});
 // Cuadros de tamaño uniforme (sin 'value'/scaling): eso inflaba el radio de recorte
 // y dejaba las flechas a media linea. Asi el cuadro visible = borde donde termina la flecha.
 const nodes=new vis.DataSet(NODES.map(n=>({id:n.id,label:n.label,shape:'box',
@@ -111,16 +131,49 @@ net.on('hoverEdge',p=>{const ed=edges.get(p.edge);if(ed&&ed._tip){show(ed._tip,p
 net.on('blurNode',hide); net.on('blurEdge',hide);
 net.on('dragStart',hide); net.on('zoom',hide);
 document.getElementById('net').addEventListener('mouseleave',hide);
-// filtro por peso
-function applyFilter(min){
-  edges.clear();
-  edges.add(allEdges.filter(e=>e._w>=min));
-  document.getElementById('cnt').textContent=
-    `${edges.length} flujos visibles de ${allEdges.length}`;
+// ---- filtro combinado: peso del flujo + dominio funcional ----
+// BD visible si tiene algún dominio seleccionado (o si están TODOS marcados = sin
+// filtro). Nodos externos/sink visibles solo si conectan a una BD visible. Aristas
+// visibles si pasan el peso y ambos extremos son visibles. Se usan flags 'hidden'
+// para no perder las posiciones ya estabilizadas.
+let selDom=new Set(DOMAINS);
+function applyFilter(){
+  const min=+mw.value, allChecked=selDom.size===DOMAINS.length;
+  const bdVis=new Set();
+  NODES.forEach(n=>{ if(n.group==='bd'){ const ds=n.domains||[];
+    if(allChecked || ds.some(d=>selDom.has(d))) bdVis.add(n.id); }});
+  const extVis=new Set();
+  allEdges.forEach(e=>{ if(e._w<min) return;
+    if(META[e.from].grp==='bd' && bdVis.has(e.from) && META[e.to].grp!=='bd') extVis.add(e.to);
+    if(META[e.to].grp==='bd' && bdVis.has(e.to) && META[e.from].grp!=='bd') extVis.add(e.from);
+  });
+  const nodeVis=id=> META[id].grp==='bd' ? bdVis.has(id) : extVis.has(id);
+  const visEdges=allEdges.filter(e=> e._w>=min && nodeVis(e.from) && nodeVis(e.to));
+  const visEdgeIds=new Set(visEdges.map(e=>e.id));
+  nodes.update(NODES.map(n=>({id:n.id,hidden:!nodeVis(n.id)})));
+  edges.update(allEdges.map(e=>({id:e.id,hidden:!visEdgeIds.has(e.id)})));
+  const vn=NODES.filter(n=>nodeVis(n.id)).length;
+  document.getElementById('cnt').textContent=`${visEdges.length} flujos · ${vn} nodos`;
 }
 const mw=document.getElementById('mw'),mv=document.getElementById('mv'),he=document.getElementById('he');
-mw.oninput=()=>{mv.textContent=mw.value;he.checked=false;applyFilter(+mw.value);};
-he.onchange=()=>{const m=he.checked?2:1;mw.value=m;mv.textContent=m;applyFilter(m);};
-applyFilter(1);
+mw.oninput=()=>{mv.textContent=mw.value;he.checked=false;applyFilter();};
+he.onchange=()=>{const m=he.checked?2:1;mw.value=m;mv.textContent=m;applyFilter();};
+// ---- paleta de dominios ----
+const dcnt={}; NODES.forEach(n=>{ if(n.group==='bd')(n.domains||[]).forEach(d=>dcnt[d]=(dcnt[d]||0)+1);});
+const dlist=document.getElementById('dlist');
+DOMAINS.forEach(d=>{
+  const lab=document.createElement('label');
+  const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=true; cb.className='dcb'; cb.dataset.d=d;
+  cb.onchange=()=>{ cb.checked?selDom.add(d):selDom.delete(d); applyFilter(); };
+  const sp=document.createElement('span'); sp.innerHTML=d+' <span class="dn">('+(dcnt[d]||0)+')</span>';
+  lab.appendChild(cb); lab.appendChild(sp); dlist.appendChild(lab);
+});
+function setAll(v){selDom=v?new Set(DOMAINS):new Set();
+  document.querySelectorAll('.dcb').forEach(c=>c.checked=v); applyFilter();}
+document.getElementById('dall').onclick=()=>setAll(true);
+document.getElementById('dnone').onclick=()=>setAll(false);
+document.getElementById('dptoggle').onclick=()=>{const p=document.getElementById('dompanel');
+  p.style.display=p.style.display==='none'?'block':'none';};
+applyFilter();
 }
 </script></body></html>
