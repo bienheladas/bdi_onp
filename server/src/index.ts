@@ -410,7 +410,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce(an.fragmentacion,'') as "Fragmentación",
         coalesce(an.desalineamiento_siip,'') as "Desalineamiento vs. SIIP",
         coalesce(an.relevancia_asis,'') as "Relevancia p/ modelo AS-IS",
-        'Catálogo físico (tabla/columna) + MC SIIP (F-26) · análisis automatizado' as "Evidencia"
+        'Repositorio y aplicativo del Documento Equivalente de la BDI —modelo de datos y web de consulta— como síntesis del levantamiento AS-IS (F-29); el alineamiento conceptual se contrasta con el Modelo Conceptual del SIIP (F-26).' as "Evidencia"
       from proceso_negocio pn
       join dominio_funcional df on df.id_dominio=pn.id_dominio
       join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
