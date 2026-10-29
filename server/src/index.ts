@@ -210,31 +210,41 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-03": {
     titulo: "Catálogo AS-IS de Fuentes de Datos Institucionales (en vivo)",
-    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Ambiente", "Datacenter",
-      "Servidor", "Sistema operativo", "Tipo de información", "Dominio normalizado (vía apps)", "Área usuaria",
-      "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° apps", "Tamaño (GB)", "N° esquemas",
-      "N° tablas", "Crecim. (GB/mes)", "Estado", "N° integ.", "Integra con (BD / fuentes)",
-      "Solapa con (comparte entidades)", "Observaciones / banderas"],
+    columns: ["ID", "Fuente / BD", "Descripción general", "Motor", "Versión", "Ambiente", "Servidor",
+      "Datacenter", "Sistema operativo", "Tipo de fuente", "Tipo de información gestionada",
+      "Proceso / dominio", "Área usuaria responsable", "Área técnica responsable", "Consumidores",
+      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "Observaciones de uso actual"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
         b.nombre_bd as "Fuente / BD", b.desc_base_datos as "Descripción general",
         m.desc_motor as "Motor", b.version_bd as "Versión", a.desc_ambiente as "Ambiente",
-        s.ubicacion as "Datacenter", s.nombre_servidor as "Servidor",
-        (coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')) as "Sistema operativo",
-        b.tipo_info_gest as "Tipo de información", b.dominio_funcional_onp as "Dominio normalizado (vía apps)",
-        b.area_usuario_resp_onp as "Área usuaria", b.gestor as "Gestor", b.resp_funcional as "Responsable funcional",
-        (select string_agg(distinct ap.id_app||' '||coalesce(ap.nombre_app,''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd) as "Aplicaciones consumidoras",
-        (select count(*) from aplicacion_basedatos abx where abx.id_bd=b.id_bd)::int as "N° apps",
-        b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas",
-        b.crecimiento_gb as "Crecim. (GB/mes)", b.estado_bd as "Estado",
-        (select count(*) from integraciones ix where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd)::int as "N° integ.",
-        (select string_agg(distinct t.nm,' | ') from (
-           select coalesce(b2.nombre_bd, ix.destino_externo) nm from integraciones ix left join base_de_datos b2 on b2.id_bd=ix.id_bd_destino where ix.id_bd_origen=b.id_bd
-           union select coalesce(b3.nombre_bd, ix.origen_externo) from integraciones ix left join base_de_datos b3 on b3.id_bd=ix.id_bd_origen where ix.id_bd_destino=b.id_bd
-         ) t where t.nm is not null) as "Integra con (BD / fuentes)",
-        b.solapamiento_asis as "Solapa con (comparte entidades)",
-        b.observaciones as "Observaciones / banderas"
+        s.nombre_servidor as "Servidor", s.ubicacion as "Datacenter",
+        nullif(trim(coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')),'') as "Sistema operativo",
+        coalesce(nullif(trim(b.tipo_bd),''),
+          case when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap|analit| bi )' then 'Analítica / DW'
+               else 'Transaccional (relacional)' end) as "Tipo de fuente",
+        coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),''), 'Pendiente de validar') as "Tipo de información gestionada",
+        coalesce((select string_agg(distinct df.desc_dominio||' ('||tp.desc_tipo_proceso||')', ' · ')
+                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+                  join dominio_funcional df on df.id_dominio=pn.id_dominio
+                  join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+                  where ab.id_bd=b.id_bd), nullif(trim(b.dominio_funcional_onp),''), 'Pendiente de validar') as "Proceso / dominio",
+        coalesce((select string_agg(distinct o.nombre_vigente, ' · ')
+                  from aplicacion_basedatos ab join aplicacion_area aa on aa.id_aplicacion=ab.id_aplicacion
+                  join oficina o on trim(o.sigla)=trim(aa.sigla) where ab.id_bd=b.id_bd),
+                 nullif(trim(b.area_usuario_resp_onp),''), 'Pendiente de validar') as "Área usuaria responsable",
+        coalesce(nullif(trim(b.area_tecnica_resp_onp),''), nullif(trim(b.gestor),''), 'Pendiente de validar') as "Área técnica responsable",
+        (select string_agg(distinct ap.id_app||' '||coalesce(ap.nombre_app,''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd) as "Consumidores",
+        coalesce(b.relevancia_asis,'Pendiente de validar') as "Relevancia p/ trazabilidad",
+        coalesce(nullif(trim(
+           (case when lower(coalesce(a.desc_ambiente,'')) like '%produc%' then 'Acceso restringido a producción. ' else '' end)||
+           (case when upper(coalesce(b.estado_bd,'')) like '%BAJA%' then 'BD en baja/candidata. ' else '' end)||
+           (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(persona|asegurado|empleador|pension|aporte)' then 'Contiene datos personales. ' else '' end)
+         ),''),'Pendiente de validar') as "Restricciones / limitaciones",
+        coalesce(b.estado_bd,'Pendiente de validar') as "Estado",
+        coalesce(nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
