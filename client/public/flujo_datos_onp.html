@@ -49,7 +49,8 @@
 // embebido (copia offline del .zip) se usa; si no, se pide en vivo a Postgres.
 (window.__FLUJO__
   ? Promise.resolve(window.__FLUJO__)
-  : fetch('/api/flujo').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}))
+  : fetch('/api/flujo',{headers:{'x-admin-key':localStorage.getItem('adminkey')||''}})
+      .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}))
   .then(DATA=>init(DATA))
   .catch(e=>{const el=document.getElementById('err');el.style.display='block';
     el.textContent='No se pudo cargar el flujo: '+e.message;});
