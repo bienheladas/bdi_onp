@@ -177,9 +177,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   "ADI-05": {
     titulo: "Mapa de Relaciones e Integraciones entre Fuentes de Datos (en vivo)",
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
-      "Mecanismo", "Nombre del enlace / job", "Esquema / owner", "Visibilidad", "Usuario remoto (DB Link)",
-      "Riesgo del enlace", "Tabla(s) destino", "Modo de carga",
-      "Objetivo / propósito", "Proveedor", "Estado"],
+      "Tipo de relación / dependencia", "Mecanismo de integración", "Información intercambiada",
+      "Proceso / dominio / área", "Frecuencia", "Responsable", "Limitaciones / restricciones",
+      "Riesgos generales", "Ref. diagrama editable", "Estado", "Detalle (job / DB link)"],
     sql: `
       select
         (row_number() over (order by i.mecanismo, i.id_integracion))::int as "N°",
@@ -190,17 +190,36 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce(bd.nombre_bd, nullif(trim(i.destino_externo),''),
           case when i.mecanismo='ETL DataStage' then '(destino parametrizado — pendiente)' else '' end) as "Fuente destino / consumidora",
         md.desc_motor as "Motor destino",
-        i.mecanismo as "Mecanismo",
-        i.nombre_enlace as "Nombre del enlace / job",
-        coalesce(dl.owner, d.esquema_owner) as "Esquema / owner",
-        case when i.mecanismo <> 'DB Link' then '' when dl.es_publico then 'Público' else 'Privado' end as "Visibilidad",
-        coalesce(dl.usuario_remoto,'') as "Usuario remoto (DB Link)",
-        case when i.mecanismo='ETL DataStage' then 'Bajo' else coalesce(dl.nivel_riesgo,'') end as "Riesgo del enlace",
-        d.tabla_destino as "Tabla(s) destino",
-        d.modo_carga as "Modo de carga",
-        d.objetivo as "Objetivo / propósito",
-        d.proveedor as "Proveedor",
-        coalesce(i.estado_enlace,'') as "Estado"
+        case when i.mecanismo='ETL DataStage' then 'Flujo de datos (ETL)'
+             when i.mecanismo='DB Link' then
+               (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
+                                 and p.privilegio ~ '(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)') then 'Lectura/Escritura'
+                     when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
+                                 and p.privilegio like 'SELECT%') then 'Lectura'
+                     else 'Lectura/Escritura *' end)
+             else '' end as "Tipo de relación / dependencia",
+        i.mecanismo || case when i.mecanismo='ETL DataStage' and nullif(trim(d.modo_carga),'') is not null then ' ('||d.modo_carga||')' else '' end as "Mecanismo de integración",
+        coalesce((select string_agg(x.entidad, ', ' order by x.m desc) from
+            (select fe.entidad, sum(fe.nro_menciones) m from fuente_entidad fe
+             where fe.id_bd in (i.id_bd_origen, i.id_bd_destino) group by fe.entidad order by m desc limit 5) x),'') as "Información intercambiada",
+        coalesce((select string_agg(distinct df.desc_dominio,' | ') from aplicacion_basedatos ab
+                  join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+                  join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=coalesce(i.id_bd_origen,i.id_bd_destino)),'') as "Proceso / dominio / área",
+        case when i.mecanismo='DB Link' then 'En línea'
+             when i.mecanismo='ETL DataStage' then 'Incremental diario *' else '' end as "Frecuencia",
+        case when i.mecanismo='DB Link' then 'DBA de ONP (OTI)'
+             when i.mecanismo='ETL DataStage' then coalesce(nullif(trim(d.proveedor),''), nullif(trim(d.responsable),''), 'OTI (DataStage)') else '' end as "Responsable",
+        case when i.mecanismo='DB Link' then (case when dl.es_publico then 'Enlace público: usable por cualquier esquema de la BD origen' else 'Enlace privado (acotado al esquema dueño)' end)
+             when i.mecanismo='ETL DataStage' then (case when upper(coalesce(d.reprocesable,''))='NO' then 'Sin reproceso automático ante fallas' when upper(coalesce(d.reprocesable,''))='SI' then 'Reprocesable' else '' end)
+             else '' end as "Limitaciones / restricciones",
+        case when i.mecanismo='ETL DataStage' then 'Bajo' else coalesce(dl.nivel_riesgo,'') end as "Riesgos generales",
+        'Mapa de flujo de datos (Reportería · flujo_datos_onp.html)' as "Ref. diagrama editable",
+        coalesce(i.estado_enlace,'') as "Estado",
+        case when i.mecanismo='DB Link' then
+               'Enlace: '||coalesce(i.nombre_enlace,'')||'; Owner: '||coalesce(dl.owner,'')||'; Visibilidad: '||(case when dl.es_publico then 'Público' else 'Privado' end)||'; Usuario remoto: '||coalesce(dl.usuario_remoto,'')
+             when i.mecanismo='ETL DataStage' then
+               'Job: '||coalesce(i.nombre_enlace,'')||coalesce('; Tabla(s) destino: '||nullif(trim(d.tabla_destino),''),'')||coalesce('; Modo: '||nullif(trim(d.modo_carga),''),'')||coalesce('; Objetivo: '||nullif(trim(d.objetivo),''),'')
+             else '' end as "Detalle (job / DB link)"
       from integraciones i
       left join base_de_datos bo on bo.id_bd=i.id_bd_origen
       left join motor_bd mo on mo.id_motor_bd=bo.id_motor_bd
