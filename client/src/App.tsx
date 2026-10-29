@@ -148,7 +148,7 @@ function Artefactos() {
             <tbody>
               {rows.map(({ i, r }) => <tr key={i}>{r.map((c, ci) => {
                 const link = data.links[`${i}_${ci}`];
-                return <td key={ci}>{link ? <a className="lnk" href={link} target="_blank" rel="noreferrer">{c || "🔗 abrir"}</a> : c}</td>;
+                return <td key={ci} title={c}>{link ? <a className="lnk" href={link} target="_blank" rel="noreferrer">{c || "🔗 abrir"}</a> : c}</td>;
               })}</tr>)}
               {rows.length === 0 && <tr><td colSpan={data.columns.length || 1} className="muted">Sin resultados.</td></tr>}
             </tbody>
