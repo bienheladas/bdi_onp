@@ -328,7 +328,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["Tipo de proceso", "Dominio funcional (normalizado)", "Procesos de negocio incluidos", "N° proc.",
       "N° apps", "Aplicaciones del dominio", "N° BD", "Fuentes de datos / BD del dominio", "Motores involucrados",
       "Áreas usuarias", "Fuentes exclusivas del dominio", "Fuentes compartidas con otros dominios",
-      "Vacíos / dispersión", "Observaciones para el modelo conceptual"],
+      "Vacíos / solapamientos / dispersión", "Observaciones para el modelo conceptual"],
     sql: `
       select
         tp.desc_tipo_proceso as "Tipo de proceso", df.desc_dominio as "Dominio funcional (normalizado)",
@@ -346,9 +346,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            where pn.id_dominio=df.id_dominio) as "Áreas usuarias",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join aplicacion_proceso ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
         (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join aplicacion_proceso ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
-        ('Dispersión máx '||coalesce((select max(n) from (select count(distinct fe.id_bd) n from fuente_entidad fe where fe.id_bd in (select abx.id_bd from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio) group by fe.entidad) z),0)::text||' BD por entidad · '||
-         (select count(*) from (select distinct abx.id_bd ib from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio) q where q.ib not in (select id_bd from fuente_entidad))::text||' BD sin catálogo de entidades') as "Vacíos / dispersión",
-        '' as "Observaciones para el modelo conceptual"
+        df.obs_vacios as "Vacíos / solapamientos / dispersión",
+        df.obs_modelo_concept as "Observaciones para el modelo conceptual"
       from dominio_funcional df join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
       order by tp.id_tipo_proceso, df.desc_dominio
     `,
