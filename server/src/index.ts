@@ -270,9 +270,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            (case when upper(coalesce(b.estado_bd,'')) like '%BAJA%' then 'En baja/candidata. ' else '' end)
          ),'')||' *','') as "Restricciones / limitaciones",
         coalesce(nullif(trim(b.estado_bd),''),
-          (select case when bool_or(upper(a.estado_app) like '%OPERATIV%') then 'Operativo *'
-                       when bool_or(upper(a.estado_app) like '%ANALISIS%') then 'En análisis *'
-                       when count(*)>0 then 'Candidato / De baja *' else null end
+          (select case when bool_or(upper(a.estado_app) like '%OPERATIV%') then 'Operativo'
+                       when bool_or(upper(a.estado_app) like '%ANALISIS%') then 'En análisis'
+                       when bool_or(upper(a.estado_app) like '%CANDIDATO%') then 'Candidato a dar de baja'
+                       when count(*)>0 then 'De baja' else null end
            from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd), '') as "Estado",
         coalesce(nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
       from base_de_datos b
