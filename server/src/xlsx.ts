@@ -15,7 +15,7 @@ const EST_TAG: Record<string, string> = {
   derivado: "   ·   (derivado por cálculo)", manual: "   ·   (análisis experto LCP)",
 };
 
-const GLOSA_BASE =
+const GLOSA_P1 =
   "El contenido de este artefacto se construyó sobre un modelo de datos único en el que LCP integró dos tipos de " +
   "insumos. Por un lado, las fuentes institucionales entregadas por la ONP —inventarios de aplicaciones, bases de " +
   "datos y servidores, documentos de arquitectura y de procesos, políticas y el modelo conceptual del SIIP—, que se " +
@@ -23,14 +23,15 @@ const GLOSA_BASE =
   "directamente por LCP, que generó nuevas fuentes de evidencia: la extracción de volumetría, estructura física y " +
   "metadata de las bases de datos mediante cuentas de solo lectura, el análisis de las integraciones (DataStage y " +
   "enlaces de base de datos) y las actas de las entrevistas con gestores y áreas usuarias. Cada fuente quedó " +
-  "registrada y codificada (F-01 … F-29) en el artefacto ADI-01.\n" +
-  "A partir de esa consolidación, cada columna del artefacto tiene un origen declarado: puede provenir de una fuente " +
-  "única, de la combinación de varias o de un cálculo o derivación sobre los datos ya integrados. Cuando una columna " +
-  "es resultado de análisis o inferencia —y no de un dato tomado literalmente de la fuente— se indica la regla, " +
-  "fórmula o indicador que la orienta y el valor se marca con un asterisco (*) en el cuerpo del artefacto.";
-const GLOSA_TAIL =
-  " El bloque «Trazabilidad de campos» que sigue detalla, columna por columna, de qué fuente(s) proviene y bajo qué " +
-  "regla o cálculo se determinó, de modo que cada dato pueda auditarse desde el artefacto hasta su origen.";
+  "registrada y codificada (F-01 … F-29) en el artefacto ADI-01.";
+const GLOSA_P2 =
+  "Una vez integrada esa información, cada columna de este artefacto tiene un origen conocido y declarado. Algunas " +
+  "columnas se toman directamente de una o varias fuentes; otras se obtienen mediante un cálculo o una derivación a " +
+  "partir de los datos ya integrados; y otras corresponden a un análisis o interpretación elaborada por LCP. En este " +
+  "último caso se explica la regla, fórmula o criterio que sustenta el valor, y el dato se marca con un asterisco (*) " +
+  "en la tabla para distinguirlo de la información tomada tal cual de la fuente. Para facilitar la revisión, el bloque " +
+  "«Trazabilidad de campos» que aparece a continuación indica, columna por columna, de qué fuente o fuentes proviene y " +
+  "cómo se obtuvo, de manera que cualquier dato pueda verificarse desde este artefacto hasta su origen.";
 
 type Meta = { a2: string; a3: string; meta: Record<string, string> };
 const METALABELS = ["Tipo de artefacto", "Marco de referencia", "Responsable(s)",
@@ -105,7 +106,7 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
     ws.getRow(r).height = txtH(val, two ? totw : totw * 0.9);
     r++;
   }
-  const glosa = GLOSA_BASE + (withTraza ? GLOSA_TAIL : "");
+  const glosa = GLOSA_P1 + (withTraza ? "\n" + GLOSA_P2 : "");
   full(r++, "Metodología de consolidación y relevamiento", labF, STEEL, 16);
   full(r++, glosa, { name: "Calibri", size: 9 }, null, txtH(glosa, totw), "top");
   if (withTraza) {
