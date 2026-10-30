@@ -114,6 +114,16 @@ const W09: Record<string, number> = {
   "Fragmentación": 245, "Desalineamiento vs. SIIP": 235, "Relevancia p/ modelo AS-IS": 235,
   "Evidencia": 160,
 };
+// Anchos ADI-04 (incorporó textos de análisis: Uso principal, Nivel de relación, Vacíos, Observaciones).
+const W04: Record<string, number> = {
+  "Tipo de proceso": 85, "Dominio funcional (normalizado)": 150, "Procesos de negocio incluidos": 220,
+  "N° proc.": 46, "N° apps": 46, "Aplicaciones del dominio": 170, "N° BD": 46,
+  "Fuentes de datos / BD del dominio": 240, "Motores involucrados": 95, "Tipo de información": 190,
+  "Uso principal": 320, "Áreas usuarias": 160, "Fuentes exclusivas del dominio": 190,
+  "Fuentes compartidas con otros dominios": 190, "Nivel de relación": 72,
+  "Vacíos / solapamientos / dispersión": 240, "Observaciones para el modelo conceptual": 260,
+};
+const WMAP: Record<string, Record<string, number>> = { "ADI-09": W09, "ADI-04": W04 };
 function Artefactos() {
   const [meta, setMeta] = useState<ArtMeta[]>([]);
   const [sel, setSel] = useState<string>("");
@@ -200,8 +210,8 @@ function Artefactos() {
         );
       })() : (
         <div className="tablewrap">
-          <table className={sel === "ADI-09" ? "wrap" : ""}>
-            {sel === "ADI-09" && <colgroup>{data.columns.map((c, i) => <col key={i} style={{ width: (W09[c] || 180) + "px" }} />)}</colgroup>}
+          <table className={WMAP[sel] ? "wrap" : ""}>
+            {WMAP[sel] && <colgroup>{data.columns.map((c, i) => <col key={i} style={{ width: (WMAP[sel][c] || 180) + "px" }} />)}</colgroup>}
             <thead><tr>{data.columns.map((c, i) => {
               const d = desc[sel]?.[c];
               const ind = sort && sort.col === i ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
