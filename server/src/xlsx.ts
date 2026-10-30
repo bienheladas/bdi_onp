@@ -174,7 +174,9 @@ export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], ro
       else cell.value = s;
     });
   });
-  ws.views = [{ state: "frozen", ySplit: hr }];
+  // Congela solo la banda (3 filas): el preámbulo (metadatos/metodología/trazabilidad)
+  // queda desplazable para poder llegar a los registros.
+  ws.views = [{ state: "frozen", ySplit: 3 }];
   ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: hr + rows.length, column: ncol } };
   addLegend(ws, ncol, hr + rows.length, columns, desc, totw);
 }
