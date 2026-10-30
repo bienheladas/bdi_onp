@@ -462,7 +462,7 @@ function FieldInput({ f, opts, value, disabled, onChange }: { f: Field; opts: Re
   if (f.type === "Json") return <textarea rows={2} placeholder='["valor1","valor2"]' value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
   if (f.type === "DateTime") return <input type="date" value={value || ""} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
   if (f.type === "Int" || f.type === "Decimal") return <input type="number" step={f.type === "Decimal" ? "any" : "1"} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
-  if (/^(desc_|observ|coment)/.test(f.name)) return <textarea rows={2} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
+  if (/^(desc_|observ|coment|uso_)/.test(f.name)) return <textarea rows={2} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
   return <input type="text" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
 }
 

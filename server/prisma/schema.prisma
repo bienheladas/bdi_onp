@@ -33,6 +33,7 @@ model aplicacion {
   area_usuaria_resp    String?
   area_tecnica_resp    String?
   en_modelo_conceptual Boolean                @default(true)
+  uso_informacion      String?
   unidad_jerarquica    String?
   gestor_resp          String?
   criticidad           String?                @db.VarChar(20)
