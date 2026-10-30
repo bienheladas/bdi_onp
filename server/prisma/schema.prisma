@@ -31,6 +31,7 @@ model aplicacion {
   nombre_lider_usuario String?
   cargo_lider_usuario  String?
   area_usuaria_resp    String?
+  area_tecnica_resp    String?
   unidad_jerarquica    String?
   gestor_resp          String?
   criticidad           String?                @db.VarChar(20)
@@ -85,7 +86,6 @@ model base_de_datos {
   tipo_bd                                                  String?                @db.VarChar(80)
   tipo_info_gest                                           String?
   area_usuario_resp_onp                                    String?
-  area_tecnica_resp_onp                                    String?
   tamano_gb                                                Decimal?               @db.Decimal(14, 2)
   nro_esquemas                                             Int?
   nro_tablas                                               Int?
