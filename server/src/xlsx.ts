@@ -15,7 +15,7 @@ const EST_TAG: Record<string, string> = {
   derivado: "   ·   (derivado por cálculo)", manual: "   ·   (análisis experto LCP)",
 };
 
-const GLOSA =
+const GLOSA_BASE =
   "El contenido de este artefacto se construyó sobre un modelo de datos único en el que LCP integró dos tipos de " +
   "insumos. Por un lado, las fuentes institucionales entregadas por la ONP —inventarios de aplicaciones, bases de " +
   "datos y servidores, documentos de arquitectura y de procesos, políticas y el modelo conceptual del SIIP—, que se " +
@@ -27,9 +27,10 @@ const GLOSA =
   "A partir de esa consolidación, cada columna del artefacto tiene un origen declarado: puede provenir de una fuente " +
   "única, de la combinación de varias o de un cálculo o derivación sobre los datos ya integrados. Cuando una columna " +
   "es resultado de análisis o inferencia —y no de un dato tomado literalmente de la fuente— se indica la regla, " +
-  "fórmula o indicador que la orienta y el valor se marca con un asterisco (*) en el cuerpo del artefacto. El bloque " +
-  "«Trazabilidad de campos» que sigue detalla, columna por columna, de qué fuente(s) proviene y bajo qué regla o " +
-  "cálculo se determinó, de modo que cada dato pueda auditarse desde el artefacto hasta su origen.";
+  "fórmula o indicador que la orienta y el valor se marca con un asterisco (*) en el cuerpo del artefacto.";
+const GLOSA_TAIL =
+  " El bloque «Trazabilidad de campos» que sigue detalla, columna por columna, de qué fuente(s) proviene y bajo qué " +
+  "regla o cálculo se determinó, de modo que cada dato pueda auditarse desde el artefacto hasta su origen.";
 
 type Meta = { a2: string; a3: string; meta: Record<string, string> };
 const METALABELS = ["Tipo de artefacto", "Marco de referencia", "Responsable(s)",
@@ -66,7 +67,7 @@ export function newWorkbook() {
 }
 
 // banda + metadatos + metodología + trazabilidad. Devuelve la fila de inicio del contenido.
-function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Traza[], totw: number): number {
+function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Traza[], totw: number, withTraza = true): number {
   const md = M[id];
   const two = lastC === 2;
   const full = (r: number, text: string, font: any, fillArgb: string | null, h: number | null, va = "middle") => {
@@ -104,15 +105,18 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
     ws.getRow(r).height = txtH(val, two ? totw : totw * 0.9);
     r++;
   }
+  const glosa = GLOSA_BASE + (withTraza ? GLOSA_TAIL : "");
   full(r++, "Metodología de consolidación y relevamiento", labF, STEEL, 16);
-  full(r++, GLOSA, { name: "Calibri", size: 9 }, null, txtH(GLOSA, totw), "top");
-  full(r++, "Trazabilidad de campos  (campo  ←  fuente(s)  ·  regla / cálculo)", labF, STEEL, 16);
-  for (const t of traza) {
-    const fu = (t.fuente_id == null || t.fuente_id === "" || t.fuente_id === "-") ? "—" : t.fuente_id;
-    const tag = EST_TAG[t.estado] || "";
-    const txt = `${t.columna_art}      ←   Fuentes: ${fu}   ·   Regla/cálculo: ${t.origen_pg}${tag}`;
-    full(r, txt, { name: "Calibri", size: 9 }, (r % 2 ? ZEBRA : null), txtH(txt, totw), "top");
-    r++;
+  full(r++, glosa, { name: "Calibri", size: 9 }, null, txtH(glosa, totw), "top");
+  if (withTraza) {
+    full(r++, "Trazabilidad de campos  (campo  ←  fuente(s)  ·  regla / cálculo)", labF, STEEL, 16);
+    for (const t of traza) {
+      const fu = (t.fuente_id == null || t.fuente_id === "" || t.fuente_id === "-") ? "—" : t.fuente_id;
+      const tag = EST_TAG[t.estado] || "";
+      const txt = `${t.columna_art}      ←   Fuentes: ${fu}   ·   Regla/cálculo: ${t.origen_pg}${tag}`;
+      full(r, txt, { name: "Calibri", size: 9 }, (r % 2 ? ZEBRA : null), txtH(txt, totw), "top");
+      r++;
+    }
   }
   r++; // separador
   return r;
@@ -127,7 +131,7 @@ export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], ro
   const widths = maxlen.map((ml) => Math.min(Math.max(ml + 2, 9), 60));
   widths.forEach((wd, i) => { ws.getColumn(i + 1).width = wd; });
   const totw = widths.reduce((a, b) => a + b, 0);
-  const hr = topSection(ws, ncol, id, traza, totw);
+  const hr = topSection(ws, ncol, id, traza, totw, id !== "ADI-01");
   // cabecera de tabla
   columns.forEach((c, i) => {
     const cell = ws.getCell(hr, i + 1);
