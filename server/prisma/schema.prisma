@@ -32,6 +32,7 @@ model aplicacion {
   cargo_lider_usuario  String?
   area_usuaria_resp    String?
   area_tecnica_resp    String?
+  en_modelo_conceptual Boolean                @default(true)
   unidad_jerarquica    String?
   gestor_resp          String?
   criticidad           String?                @db.VarChar(20)

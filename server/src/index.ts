@@ -396,23 +396,25 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Tipo de información", "Áreas usuarias", "Fuentes exclusivas del dominio", "Fuentes compartidas con otros dominios",
       "Vacíos / solapamientos / dispersión", "Observaciones para el modelo conceptual"],
     sql: `
+      with dom_app as (select ap.id_proceso, ap.id_aplicacion from aplicacion_proceso ap
+                       join aplicacion a on a.id=ap.id_aplicacion where a.en_modelo_conceptual)
       select
         tp.desc_tipo_proceso as "Tipo de proceso", df.desc_dominio as "Dominio funcional (normalizado)",
         (select string_agg(distinct pn.desc_proceso,' · ') from proceso_negocio pn where pn.id_dominio=df.id_dominio) as "Procesos de negocio incluidos",
         (select count(*) from proceso_negocio pn where pn.id_dominio=df.id_dominio)::int as "N° proc.",
-        (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso where pn.id_dominio=df.id_dominio)::int as "N° apps",
-        (select string_agg(distinct a.id_app,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion a on a.id=ap.id_aplicacion where pn.id_dominio=df.id_dominio) as "Aplicaciones del dominio",
-        (select count(distinct abx.id_bd) from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio)::int as "N° BD",
-        (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio) as "Fuentes de datos / BD del dominio",
-        (select string_agg(distinct m.desc_motor,', ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd join motor_bd m on m.id_motor_bd=b.id_motor_bd where pn.id_dominio=df.id_dominio) as "Motores involucrados",
-        (select string_agg(distinct left(trim(b.tipo_info_gest),45),' · ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and nullif(trim(b.tipo_info_gest),'') is not null) as "Tipo de información",
+        (select count(distinct ap.id_aplicacion) from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso where pn.id_dominio=df.id_dominio)::int as "N° apps",
+        (select string_agg(distinct a.id_app,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion a on a.id=ap.id_aplicacion where pn.id_dominio=df.id_dominio) as "Aplicaciones del dominio",
+        (select count(distinct abx.id_bd) from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio)::int as "N° BD",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio) as "Fuentes de datos / BD del dominio",
+        (select string_agg(distinct m.desc_motor,', ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd join motor_bd m on m.id_motor_bd=b.id_motor_bd where pn.id_dominio=df.id_dominio) as "Motores involucrados",
+        (select string_agg(distinct left(trim(b.tipo_info_gest),45),' · ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and nullif(trim(b.tipo_info_gest),'') is not null) as "Tipo de información",
         (select string_agg(distinct o.nombre_vigente, ' | ' order by o.nombre_vigente)
-           from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+           from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
            join aplicacion_area aa on aa.id_aplicacion=ap.id_aplicacion
            join oficina o on trim(o.sigla)=trim(aa.sigla)
            where pn.id_dominio=df.id_dominio) as "Áreas usuarias",
-        (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join aplicacion_proceso ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
-        (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join aplicacion_proceso ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
         df.obs_vacios as "Vacíos / solapamientos / dispersión",
         df.obs_modelo_concept as "Observaciones para el modelo conceptual"
       from dominio_funcional df join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
@@ -426,17 +428,19 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Cobertura del dominio", "Vacíos", "Solapamientos / redundancias", "Fragmentación",
       "Desalineamiento vs. SIIP", "Relevancia p/ modelo AS-IS", "Evidencia"],
     sql: `
+      with dom_app as (select ap.id_proceso, ap.id_aplicacion from aplicacion_proceso ap
+                       join aplicacion a on a.id=ap.id_aplicacion where a.en_modelo_conceptual)
       select
         (row_number() over (order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso))::int as "N°",
         tp.desc_tipo_proceso as "Tipo de proceso",
         df.desc_dominio as "Dominio funcional",
         pn.desc_proceso as "Proceso de negocio",
-        (select count(distinct ap.id_aplicacion) from aplicacion_proceso ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
-        (select string_agg(distinct a.id_app || coalesce(' ('||nullif(trim(a.abreviatura_app),'')||')',''), ', ') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
-        (select count(distinct abx.id_bd) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
-        (select string_agg(distinct b.nombre_bd,' ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
-        (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
-        (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from aplicacion_proceso ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
+        (select count(distinct ap.id_aplicacion) from dom_app ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
+        (select string_agg(distinct a.id_app || coalesce(' ('||nullif(trim(a.abreviatura_app),'')||')',''), ', ') from dom_app ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
+        (select count(distinct abx.id_bd) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
+        (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
+        (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
         coalesce(an.cobertura,'') as "Cobertura del dominio",
         coalesce(an.vacios,'') as "Vacíos",
         coalesce(an.solapamientos,'') as "Solapamientos / redundancias",
