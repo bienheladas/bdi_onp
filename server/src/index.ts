@@ -285,7 +285,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   from aplicacion_basedatos ab join aplicacion_area aa on aa.id_aplicacion=ab.id_aplicacion
                   join oficina o on trim(o.sigla)=trim(aa.sigla) where ab.id_bd=b.id_bd),
                  nullif(trim(b.area_usuario_resp_onp),''), '') as "Área usuaria responsable",
-        coalesce((select string_agg(distinct nullif(trim(ap.area_tecnica_resp),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd),'') as "Área técnica responsable",
+        case when coalesce(
+               (select string_agg(distinct nullif(trim(ap.gestor_resp),''),'') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd),
+               nullif(trim(b.gestor),'')
+             ) is not null then 'OTI' else '' end as "Área técnica responsable",
         coalesce((select string_agg(distinct nullif(trim(ap.gestor_resp),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), nullif(trim(b.gestor),''), '') as "Gestor",
         coalesce((select string_agg(distinct nullif(trim(ap.nombre_lider_usuario),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), nullif(trim(b.resp_funcional),''), '') as "Responsable funcional",
         (select string_agg(distinct ap.id_app||' '||coalesce(ap.nombre_app,''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd) as "Aplicaciones consumidoras",
