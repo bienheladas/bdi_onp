@@ -175,6 +175,23 @@ app.get("/api/oficinas", async (_req, res) => {
 // Cada artefacto se arma desde la data actual (no un Excel en duro). Devuelve
 // {columns, rows, links} igual que los <ID>.json estáticos.
 const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> = {
+  "ADI-02": {
+    titulo: "Registro de Levantamiento y Validación Técnica-Funcional (en vivo)",
+    columns: ["N°", "Fecha de sesión", "Tipo", "Interlocutores (técnicos/funcionales)", "Áreas participantes",
+      "Temas tratados", "Información levantada y validada", "Acuerdos adoptados",
+      "Restricciones de acceso o disponibilidad", "Evidencia"],
+    sql: `
+      select nro as "N°", coalesce(fecha_sesion,'') as "Fecha de sesión", coalesce(tipo,'') as "Tipo",
+        coalesce(interlocutores,'') as "Interlocutores (técnicos/funcionales)",
+        coalesce(areas_participantes,'') as "Áreas participantes",
+        coalesce(temas_tratados,'') as "Temas tratados",
+        coalesce(info_levantada,'') as "Información levantada y validada",
+        coalesce(acuerdos,'') as "Acuerdos adoptados",
+        coalesce(restricciones,'') as "Restricciones de acceso o disponibilidad",
+        coalesce(evidencia,'') as "Evidencia"
+      from reunion_levantamiento order by nro
+    `,
+  },
   "ADI-05": {
     titulo: "Mapa de Relaciones e Integraciones entre Fuentes de Datos (en vivo)",
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
@@ -512,7 +529,7 @@ app.get("/api/artefacto/:id", async (req, res) => {
 });
 
 // ---------------- Exportación EN VIVO a Excel (sin archivos estáticos) ----------------
-const ART_IDS = ["ADI-01", "ADI-03", "ADI-04", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
+const ART_IDS = ["ADI-01", "ADI-02", "ADI-03", "ADI-04", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
 const FCOLS: [string, string][] = [
   ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"],
   ["descripcion_proposito", "Descripción / propósito"], ["resumen", "Resumen / análisis del contenido"],

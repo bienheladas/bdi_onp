@@ -1,5 +1,6 @@
 [
   { "id": "ADI-01", "titulo": "Fuentes de Información y Evidencias Técnicas", "generador": "tabla fuentes_institucionales (en vivo)", "fuente": "tabla", "archivo": "ADI-01.xlsx" },
+  { "id": "ADI-02", "titulo": "Registro de Levantamiento y Validación Técnica-Funcional", "generador": "tabla reunion_levantamiento (en vivo)", "fuente": "live", "archivo": "ADI-02.xlsx" },
   { "id": "ADI-03", "titulo": "Catálogo AS-IS de Fuentes de Datos Institucionales", "generador": "tabla base_de_datos + joins (en vivo)", "fuente": "live", "archivo": "ADI-03.xlsx" },
   { "id": "ADI-04", "titulo": "Matriz de Fuentes de Datos por Dominio Funcional", "generador": "dominio_funcional + procesos/apps/BD (en vivo)", "fuente": "live", "archivo": "ADI-04.xlsx" },
   { "id": "ADI-05", "titulo": "Mapa de Relaciones e Integraciones entre Fuentes de Datos", "generador": "tabla integraciones (en vivo)", "fuente": "live", "archivo": "ADI-05.xlsx" },
