@@ -243,10 +243,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Tipo de fuente", "Tipo de información gestionada",
       "Tipo(s) de proceso", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Área usuaria responsable", "Área técnica responsable",
       "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° integ.", "Integra con (BD / fuentes)",
-      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "Observaciones de uso actual"],
+      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "¿Dentro del alcance de la BDI?", "Observaciones de uso actual"],
     sql: `
       select
-        'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
+        'FTE-'||lpad((row_number() over (order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd))::text,3,'0') as "ID",
         b.nombre_bd as "Fuente / BD",
         case when length(trim(coalesce(b.desc_base_datos,'')))>=25 then b.desc_base_datos
              else coalesce(nullif(trim(
@@ -318,12 +318,23 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                        when bool_or(upper(a.estado_app) like '%CANDIDATO%') then 'Candidato a dar de baja'
                        when count(*)>0 then 'De baja' else null end
            from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd), '') as "Estado",
+        (case
+           when b.en_modelo_conceptual
+                and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion
+                           where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)
+             then 'Sí'
+           when coalesce(b.clase_contenido,'') in ('Metadata de enlatado','Infraestructura','Auditoría','Prueba de migración')
+             then 'No — '||b.clase_contenido
+           when not exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd)
+             then 'No — sin aplicación vigente'
+           else 'No — aplicación de baja / fuera de alcance'
+         end) as "¿Dentro del alcance de la BDI?",
         coalesce(nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
       left join servidor s on s.id_servidor=b.id_servidor
-      order by b.nombre_bd
+      order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd
     `,
   },
   "ADI-07": {
@@ -338,7 +349,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Relevancia p/ trazabilidad del expediente", "Observaciones de almacenamiento / crecimiento"],
     sql: `
       select
-        'FTE-'||lpad((row_number() over (order by b.nombre_bd))::text,3,'0') as "ID",
+        'FTE-'||lpad((row_number() over (order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd))::text,3,'0') as "ID",
         b.nombre_bd as "Fuente / BD",
         (select case max(case upper(trim(a.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
            when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
@@ -401,7 +412,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
       left join servidor s on s.id_servidor=b.id_servidor
-      order by b.nombre_bd
+      order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd
     `,
   },
   "ADI-04": {
