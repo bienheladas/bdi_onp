@@ -229,5 +229,6 @@ export function addPortada(wb: ExcelJS.Workbook, ids: string[]) {
   for (const id of ids) { full(r, `${id}  ·  ${M[id]?.a2.split("· ")[1] || id}`, { name: "Calibri", size: 10 }, (r % 2 ? ZEBRA : null), 16); r++; }
   r++;
   full(r++, "Metodología de consolidación y relevamiento", { name: "Calibri", size: 11, bold: true, color: { argb: NAVY } }, STEEL, 16);
-  full(r, GLOSA, { name: "Calibri", size: 9 }, null, txtH(GLOSA, 180), "top");
+  const glosaFull = GLOSA_P1 + "\n" + GLOSA_P2;
+  full(r, glosaFull, { name: "Calibri", size: 9 }, null, txtH(glosaFull, 180), "top");
 }
