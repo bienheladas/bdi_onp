@@ -10,13 +10,20 @@ export type Opt = { value: any; label: string };
 let KEY = localStorage.getItem("adminkey") || "";
 export const setKey = (k: string) => { KEY = k; localStorage.setItem("adminkey", k); };
 
-async function downloadXlsx(url: string, filename: string) {
-  const r = await fetch(url, { headers: { "x-admin-key": KEY } });
+function stamp() {
+  const d = new Date(), p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+async function downloadXlsx(url: string, baseName: string) {
+  // ?t= busca-caché (además del no-store del server); el archivo se baja con sufijo de fecha-hora.
+  const r = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(), { headers: { "x-admin-key": KEY } });
   if (r.status === 401) { const e: any = new Error("No autorizado"); e.auth = true; throw e; }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
   const blob = await r.blob();
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  a.href = URL.createObjectURL(blob);
+  a.download = baseName.replace(/\.xlsx$/i, `_${stamp()}.xlsx`);
+  a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 async function req(url: string, opts: RequestInit = {}) {
