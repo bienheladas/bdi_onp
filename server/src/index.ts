@@ -416,15 +416,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            where pn.id_dominio=df.id_dominio) as "Áreas usuarias",
         (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
         (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
-        (select string_agg(distinct left(trim(a.uso_informacion),90), ' · ')
-           from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
-           join aplicacion a on a.id=ap.id_aplicacion
-           where pn.id_dominio=df.id_dominio and nullif(trim(a.uso_informacion),'') is not null) as "Uso principal",
-        coalesce(vr.nivel_relacion,'') as "Nivel de relación",
+        coalesce(df.uso_principal,'') as "Uso principal",
+        coalesce(df.nivel_relacion,'') as "Nivel de relación",
         df.obs_vacios as "Vacíos / solapamientos / dispersión",
         df.obs_modelo_concept as "Observaciones para el modelo conceptual"
       from dominio_funcional df join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
-      left join v_nivel_relacion_dominio vr on vr.id_dominio=df.id_dominio
       order by tp.id_tipo_proceso, df.desc_dominio
     `,
   },
