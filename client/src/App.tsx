@@ -389,7 +389,11 @@ function Pendientes({ models, opts, ensureOpts, go }: { models: Model[]; opts: R
 function RecordForm({ model, opts, rec, onClose, onSaved }: { model: Model; opts: Record<string, Opt[]>; rec: any; onClose: () => void; onSaved: () => void }) {
   const isNew = !rec[model.pks[0]] && model.pks.every((k) => rec[k] === undefined);
   const init: any = {};
-  model.fields.forEach((f) => { init[f.name] = rec[f.name] == null ? "" : (f.type === "Json" ? JSON.stringify(rec[f.name]) : f.type === "DateTime" ? String(rec[f.name]).slice(0, 10) : rec[f.name]); });
+  model.fields.forEach((f) => {
+    init[f.name] = f.type === "Boolean"
+      ? (rec[f.name] == null ? true : !!rec[f.name])   // default marcado en alta
+      : rec[f.name] == null ? "" : (f.type === "Json" ? JSON.stringify(rec[f.name]) : f.type === "DateTime" ? String(rec[f.name]).slice(0, 10) : rec[f.name]);
+  });
   const [form, setForm] = useState<any>(init);
   const [err, setErr] = useState("");
 
@@ -454,6 +458,7 @@ function FieldInput({ f, opts, value, disabled, onChange }: { f: Field; opts: Re
       </select>
     );
   }
+  if (f.type === "Boolean") return <input type="checkbox" checked={!!value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />;
   if (f.type === "Json") return <textarea rows={2} placeholder='["valor1","valor2"]' value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
   if (f.type === "DateTime") return <input type="date" value={value || ""} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
   if (f.type === "Int" || f.type === "Decimal") return <input type="number" step={f.type === "Decimal" ? "any" : "1"} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />;
