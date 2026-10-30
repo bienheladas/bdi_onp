@@ -353,15 +353,25 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         case when lower(m.desc_motor) like '%oracle%'
              then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),'')||' *', '')
              else coalesce(nullif(trim(b.tipo_info_gest),''),'') end as "Tipo de información",
-        (select case when r is null then '' when r>=2.5 then 'Alta' when r>=1.5 then 'Media' else 'Baja' end from (
-           select case when tpw>0 and crw>0 then (tpw+crw)/2.0 when tpw>0 then tpw::numeric when crw>0 then crw::numeric else null end as r from (
-             select
-               coalesce((select max(case when tp.desc_tipo_proceso ilike '%misional%' then 3 when tp.desc_tipo_proceso ilike '%estrat%' then 2 when tp.desc_tipo_proceso ilike '%soporte%' then 1 else 0 end)
-                 from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) tpw,
-               coalesce((select max(case upper(trim(a2.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
-                 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd),0) crw
-           ) q
-         ) qq) as "Dependencia operativa (Alta / Media / Baja)",
+        (select case when r is null then ''
+                 else (case when r>=2.5 then 'Alta' when r>=1.5 then 'Media' else 'Baja' end)
+                   || ' — ' ||
+                   (case when tpw=3 then 'soporta procesos misionales' when tpw=2 then 'soporta procesos estratégicos'
+                         when tpw=1 then 'soporta procesos de soporte' else 'sin proceso asociado' end)
+                   || (case when crw>0 then ', con aplicaciones de criticidad ' ||
+                              (case crw when 3 then 'alta' when 2 then 'media' else 'baja' end) else '' end)
+                 end
+           from (
+             select tpw, crw,
+               case when tpw>0 and crw>0 then (tpw+crw)/2.0 when tpw>0 then tpw::numeric when crw>0 then crw::numeric else null end as r
+             from (
+               select
+                 coalesce((select max(case when tp.desc_tipo_proceso ilike '%misional%' then 3 when tp.desc_tipo_proceso ilike '%estrat%' then 2 when tp.desc_tipo_proceso ilike '%soporte%' then 1 else 0 end)
+                   from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) tpw,
+                 coalesce((select max(case upper(trim(a2.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
+                   from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd),0) crw
+             ) q
+           ) qq) as "Dependencia operativa (Alta / Media / Baja)",
         (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
         b.edicion as "Edición",
         coalesce((select string_agg(distinct trim(x), ', ' order by trim(x)) from unnest(string_to_array(b.features_usadas, ',')) x where trim(x)<>''),'') as "Packs licenciables en uso",
