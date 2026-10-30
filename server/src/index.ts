@@ -327,7 +327,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-07": {
     titulo: "Matriz de Volumetría y Criticidad de Fuentes de Datos (en vivo)",
-    columns: ["ID", "Fuente / BD", "Dominio / proceso", "Tipo de información", "Criticidad", "Dependencia operativa (Alta / Media / Baja)",
+    columns: ["ID", "Fuente / BD", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Tipo de información", "Criticidad", "Dependencia operativa (Alta / Media / Baja)",
       "Motor y versión", "Edición", "Packs licenciables en uso", "Ambiente", "Charset",
       "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
       "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
@@ -345,7 +345,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce((select string_agg(distinct df.desc_dominio, ' | ' order by df.desc_dominio)
                   from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
-                  where ab.id_bd=b.id_bd),'') as "Dominio / proceso",
+                  where ab.id_bd=b.id_bd),'') as "Dominio(s) funcional(es)",
+        coalesce((select string_agg(distinct pn.desc_proceso, ' | ' order by pn.desc_proceso)
+                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+                  where ab.id_bd=b.id_bd),'') as "Proceso(s) de negocio",
         case when lower(m.desc_motor) like '%oracle%'
              then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),'')||' *', '')
              else coalesce(nullif(trim(b.tipo_info_gest),''),'') end as "Tipo de información",
