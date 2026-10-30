@@ -475,6 +475,13 @@ async function trazaOf(id: string): Promise<Traza[]> {
   return await prisma.$queryRawUnsafe<Traza[]>(
     "select columna_art, fuente_id, origen_pg, estado from trazabilidad_artefacto where artefacto=$1 order by nro", id);
 }
+async function descOf(id: string): Promise<Record<string, string>> {
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    "select columna, descripcion from artefacto_columna_desc where artefacto=$1", id);
+  const out: Record<string, string> = {};
+  for (const r of rows) out[r.columna] = r.descripcion;
+  return out;
+}
 async function sendWb(res: any, wb: any, filename: string) {
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -489,7 +496,7 @@ app.get("/api/artefactos.xlsx", async (_req, res) => {
     addPortada(wb, ART_IDS);
     for (const id of ART_IDS) {
       const { columns, rows } = await artData(id);
-      addSheet(wb, id, columns, rows, await trazaOf(id));
+      addSheet(wb, id, columns, rows, await trazaOf(id), await descOf(id));
     }
     await sendWb(res, wb, "Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx");
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -500,7 +507,7 @@ app.get("/api/artefacto/:id/xlsx", async (req, res) => {
     if (!ART_IDS.includes(id)) return res.status(404).json({ error: "artefacto no disponible" });
     const { columns, rows } = await artData(id);
     const wb = newWorkbook();
-    addSheet(wb, id, columns, rows, await trazaOf(id));
+    addSheet(wb, id, columns, rows, await trazaOf(id), await descOf(id));
     await sendWb(res, wb, `${id}.xlsx`);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

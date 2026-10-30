@@ -123,9 +123,29 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
   return r;
 }
 
-export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], rows: string[][], traza: Traza[]) {
+// Leyenda de columnas al final de la hoja: una celda por columna (nombre + descripción).
+function addLegend(ws: ExcelJS.Worksheet, lastC: number, startRow: number, columns: string[],
+  desc: Record<string, string>, totw: number) {
+  let r = startRow + 1; // separador
+  ws.mergeCells(r, 1, r, lastC);
+  const b = ws.getCell(r, 1); b.value = "Leyenda de columnas";
+  b.font = { name: "Calibri", size: 10, bold: true, color: { argb: NAVY } }; b.fill = solid(STEEL);
+  b.alignment = { horizontal: "left", vertical: "middle", wrapText: true }; ws.getRow(r).height = 16; r++;
+  for (const c of columns) {
+    const d = desc[c] || "";
+    const txt = d ? `${c}:   ${d}` : c;
+    ws.mergeCells(r, 1, r, lastC);
+    const cell = ws.getCell(r, 1); cell.value = txt;
+    cell.font = { name: "Calibri", size: 9 };
+    cell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
+    if (r % 2) cell.fill = solid(ZEBRA);
+    ws.getRow(r).height = txtH(txt, totw); r++;
+  }
+}
+
+export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], rows: string[][], traza: Traza[], desc: Record<string, string> = {}) {
   const ws = wb.addWorksheet(id, { views: [] });
-  if (id === "ADI-08") { addFicha(ws, columns, rows, traza); return; }
+  if (id === "ADI-08") { addFicha(ws, columns, rows, traza, desc); return; }
   const ncol = columns.length;
   const maxlen = columns.map((c) => c.length);
   for (const row of rows) row.forEach((v, i) => { const s = v == null ? "" : String(v); if (s.length > maxlen[i]) maxlen[i] = s.length; });
@@ -156,9 +176,10 @@ export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], ro
   });
   ws.views = [{ state: "frozen", ySplit: hr }];
   ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: hr + rows.length, column: ncol } };
+  addLegend(ws, ncol, hr + rows.length, columns, desc, totw);
 }
 
-function addFicha(ws: ExcelJS.Worksheet, columns: string[], rows: string[][], traza: Traza[]) {
+function addFicha(ws: ExcelJS.Worksheet, columns: string[], rows: string[][], traza: Traza[], desc: Record<string, string>) {
   ws.getColumn(1).width = 30; ws.getColumn(2).width = 108;
   let r = topSection(ws, 2, "ADI-08", traza, 138);
   const idx: Record<string, number> = {}; columns.forEach((c, i) => (idx[c] = i));
@@ -185,6 +206,7 @@ function addFicha(ws: ExcelJS.Worksheet, columns: string[], rows: string[][], tr
     }
     r++;
   }
+  addLegend(ws, 2, r, columns, desc, 138);
 }
 
 export function addPortada(wb: ExcelJS.Workbook, ids: string[]) {
