@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { PrismaClient, Prisma } from "@prisma/client";
+import { newWorkbook, addSheet, addPortada, type Traza } from "./xlsx";
 
 const prisma = new PrismaClient();
 const app = express();
@@ -442,6 +443,61 @@ app.get("/api/artefacto/:id", async (req, res) => {
     const data = await prisma.$queryRawUnsafe<any[]>(a.sql);
     const rows = data.map((r) => a.columns.map((c) => (r[c] == null ? "" : String(r[c]))));
     res.json({ id: req.params.id, titulo: a.titulo, columns: a.columns, rows, links: {} });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ---------------- Exportación EN VIVO a Excel (sin archivos estáticos) ----------------
+const ART_IDS = ["ADI-01", "ADI-03", "ADI-04", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
+const FCOLS: [string, string][] = [
+  ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"],
+  ["descripcion_proposito", "Descripción / propósito"], ["resumen", "Resumen / análisis del contenido"],
+  ["area_responsable", "Área responsable"], ["fecha_version_estado", "Fecha de la fuente"],
+  ["tipo_fuente", "Tipo de fuente"], ["formato_medio", "Formato / medio"],
+  ["nivel_confidencialidad", "Confidencialidad"], ["relacion_sistemas_procesos", "Relación con sistemas / procesos"],
+  ["hallazgos", "Hallazgos"], ["vacios_inconsistencias", "Vacíos / inconsistencias"],
+  ["evidencia_revision", "Evidencia (archivo/patrón)"], ["enlace", "Enlace"],
+];
+async function artData(id: string): Promise<{ columns: string[]; rows: string[][] }> {
+  if (id === "ADI-01") {
+    const data: any[] = await (prisma as any).fuentes_institucionales.findMany({ orderBy: { id_fuente: "asc" } });
+    const columns = FCOLS.map((x) => x[1]);
+    const rows = data.map((r) => FCOLS.map(([f]) => (r[f] == null ? "" : String(r[f]))));
+    return { columns, rows };
+  }
+  const a = ARTE[id];
+  if (!a) throw new Error("artefacto no disponible en vivo");
+  const d = await prisma.$queryRawUnsafe<any[]>(a.sql);
+  const rows = d.map((r) => a.columns.map((c) => (r[c] == null ? "" : String(r[c]))));
+  return { columns: a.columns, rows };
+}
+async function trazaOf(id: string): Promise<Traza[]> {
+  return await prisma.$queryRawUnsafe<Traza[]>(
+    "select columna_art, fuente_id, origen_pg, estado from trazabilidad_artefacto where artefacto=$1 order by nro", id);
+}
+async function sendWb(res: any, wb: any, filename: string) {
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  await wb.xlsx.write(res); res.end();
+}
+app.get("/api/artefactos.xlsx", async (_req, res) => {
+  try {
+    const wb = newWorkbook();
+    addPortada(wb, ART_IDS);
+    for (const id of ART_IDS) {
+      const { columns, rows } = await artData(id);
+      addSheet(wb, id, columns, rows, await trazaOf(id));
+    }
+    await sendWb(res, wb, "Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx");
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+app.get("/api/artefacto/:id/xlsx", async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!ART_IDS.includes(id)) return res.status(404).json({ error: "artefacto no disponible" });
+    const { columns, rows } = await artData(id);
+    const wb = newWorkbook();
+    addSheet(wb, id, columns, rows, await trazaOf(id));
+    await sendWb(res, wb, `${id}.xlsx`);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

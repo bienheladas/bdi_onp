@@ -10,6 +10,15 @@ export type Opt = { value: any; label: string };
 let KEY = localStorage.getItem("adminkey") || "";
 export const setKey = (k: string) => { KEY = k; localStorage.setItem("adminkey", k); };
 
+async function downloadXlsx(url: string, filename: string) {
+  const r = await fetch(url, { headers: { "x-admin-key": KEY } });
+  if (r.status === 401) { const e: any = new Error("No autorizado"); e.auth = true; throw e; }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 async function req(url: string, opts: RequestInit = {}) {
   const r = await fetch(url, { ...opts, headers: { "Content-Type": "application/json", "x-admin-key": KEY, ...(opts.headers || {}) } });
   const d = await r.json().catch(() => ({}));
@@ -27,6 +36,8 @@ export const api = {
   oficinas: (): Promise<Opt[]> => req("/api/oficinas"),
   artefacto: (id: string): Promise<{ id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> }> => req(`/api/artefacto/${encodeURIComponent(id)}`),
   columnasDesc: (): Promise<Record<string, Record<string, string>>> => req("/api/columnas_desc"),
+  // Descarga EN VIVO del Excel (genera el workbook al vuelo desde PG). Envía la clave por header.
+  xlsx: (url: string, filename: string) => downloadXlsx(url, filename),
   create: (m: string, body: any) => req(`/api/${m}`, { method: "POST", body: JSON.stringify(body) }),
   update: (m: string, id: any, body: any) => req(`/api/${m}/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (m: string, id: any) => req(`/api/${m}/${id}`, { method: "DELETE" }),

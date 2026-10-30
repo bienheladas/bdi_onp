@@ -167,8 +167,8 @@ function Artefactos() {
         </select>
         <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
         {sel === "ADI-05" && <a className="btn sec" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">🗺 Mapa de flujo ↗</a>}
-        {cur && cur.archivo && <a className="btn sec" href={`/artefactos/${cur.archivo}`} download>⬇ Este (.xlsx)</a>}
-        <a className="btn" href="/artefactos/Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx" download>⬇ Descargar todo (.xlsx)</a>
+        {sel && <a className="btn sec" onClick={() => api.xlsx(`/api/artefacto/${encodeURIComponent(sel)}/xlsx`, `${sel}.xlsx`).catch((e) => alert(e.message))}>⬇ Este (.xlsx)</a>}
+        <a className="btn" onClick={() => api.xlsx("/api/artefactos.xlsx", "Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx").catch((e) => alert(e.message))}>⬇ Descargar todo (.xlsx)</a>
       </div>
       {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
       {!data ? <p className="muted">Cargando…</p> : sel === "ADI-08" ? (() => {
