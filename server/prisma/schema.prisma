@@ -192,6 +192,7 @@ model fuentes_institucionales {
   formato_medio              String?   @db.VarChar(120)
   nivel_confidencialidad     String?   @db.VarChar(60)
   relacion_sistemas_procesos String?
+  sirve_adi                  String?
   hallazgos                  String?
   vacios_inconsistencias     String?
   ubicacion_ruta             String?

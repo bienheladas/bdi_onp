@@ -88,7 +88,7 @@ const FCOLS: [string, string][] = [
   ["resumen", "Resumen / análisis del contenido"],
   ["area_responsable", "Área responsable"], ["fecha_version_estado", "Fecha de la fuente"],
   ["tipo_fuente", "Tipo de fuente"], ["formato_medio", "Formato / medio"], ["nivel_confidencialidad", "Confidencialidad"],
-  ["relacion_sistemas_procesos", "Relación con sistemas / procesos"], ["hallazgos", "Hallazgos"],
+  ["relacion_sistemas_procesos", "Relación con sistemas / procesos"], ["sirve_adi", "Sirve a (ADI)"], ["hallazgos", "Hallazgos"],
   ["vacios_inconsistencias", "Vacíos / inconsistencias"],
   ["evidencia_revision", "Evidencia (archivo/patrón)"], ["enlace", "Enlace"],
 ];
