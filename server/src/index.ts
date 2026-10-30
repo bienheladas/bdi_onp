@@ -202,6 +202,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         i.mecanismo || case when i.mecanismo='ETL DataStage' and nullif(trim(d.modo_carga),'') is not null then ' ('||d.modo_carga||')' else '' end as "Mecanismo de integración",
         coalesce((select string_agg(x.entidad, ', ' order by x.m desc) from
             (select fe.entidad, sum(fe.nro_menciones) m from fuente_entidad fe
+             join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual
              where fe.id_bd in (i.id_bd_origen, i.id_bd_destino) group by fe.entidad order by m desc limit 5) x),'') as "Información intercambiada",
         coalesce((select string_agg(distinct df.desc_dominio,' | ') from aplicacion_basedatos ab
                   join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso
@@ -271,15 +272,15 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),'')||' *', '')
              else coalesce(nullif(trim(b.tipo_info_gest),''),'') end as "Tipo de información gestionada",
         coalesce((select string_agg(distinct tp.desc_tipo_proceso, ' | ' order by tp.desc_tipo_proceso)
-                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
                   join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),'') as "Tipo(s) de proceso",
         coalesce((select string_agg(distinct df.desc_dominio, ' | ' order by df.desc_dominio)
-                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
                   where ab.id_bd=b.id_bd),'') as "Dominio(s) funcional(es)",
         coalesce((select string_agg(distinct pn.desc_proceso, ' | ' order by pn.desc_proceso)
-                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso where ab.id_bd=b.id_bd),'') as "Proceso(s) de negocio",
         coalesce((select string_agg(distinct o.nombre_vigente, ' · ')
                   from aplicacion_basedatos ab join aplicacion_area aa on aa.id_aplicacion=ab.id_aplicacion
@@ -300,7 +301,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
           left join base_de_datos bo2 on bo2.id_bd=ix.id_bd_origen
           where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) as "Integra con (BD / fuentes)",
         (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
-              when exists(select 1 from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
+              when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media *'
               else '' end) as "Relevancia p/ trazabilidad",
         coalesce(nullif(trim(
@@ -341,13 +342,13 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         b.nombre_bd as "Fuente / BD",
         (select case max(case upper(trim(a.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
            when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
-         from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd) as "Criticidad",
+         from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion and a.en_modelo_conceptual where ab.id_bd=b.id_bd) as "Criticidad",
         coalesce((select string_agg(distinct df.desc_dominio, ' | ' order by df.desc_dominio)
-                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
                   where ab.id_bd=b.id_bd),'') as "Dominio(s) funcional(es)",
         coalesce((select string_agg(distinct pn.desc_proceso, ' | ' order by pn.desc_proceso)
-                  from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso
                   where ab.id_bd=b.id_bd),'') as "Proceso(s) de negocio",
         case when lower(m.desc_motor) like '%oracle%'
@@ -367,9 +368,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              from (
                select
                  coalesce((select max(case when tp.desc_tipo_proceso ilike '%misional%' then 3 when tp.desc_tipo_proceso ilike '%estrat%' then 2 when tp.desc_tipo_proceso ilike '%soporte%' then 1 else 0 end)
-                   from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) tpw,
+                   from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) tpw,
                  coalesce((select max(case upper(trim(a2.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
-                   from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd),0) crw
+                   from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion and a2.en_modelo_conceptual where ab.id_bd=b.id_bd),0) crw
              ) q
            ) qq) as "Dependencia operativa (Alta / Media / Baja)",
         (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
@@ -388,7 +389,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         s.disco_asignado_gb as "Disco servidor asignado (GB)", s.disco_utilizado_gb as "Disco servidor usado (GB)",
         case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% uso disco servidor",
         (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
-              when exists(select 1 from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
+              when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media *'
               else '' end) as "Relevancia p/ trazabilidad del expediente",
         coalesce(nullif(trim(
@@ -419,17 +420,17 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         (select count(*) from proceso_negocio pn where pn.id_dominio=df.id_dominio)::int as "N° proc.",
         (select count(distinct ap.id_aplicacion) from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso where pn.id_dominio=df.id_dominio)::int as "N° apps",
         (select string_agg(distinct a.id_app,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion a on a.id=ap.id_aplicacion where pn.id_dominio=df.id_dominio) as "Aplicaciones del dominio",
-        (select count(distinct abx.id_bd) from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where pn.id_dominio=df.id_dominio)::int as "N° BD",
-        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio) as "Fuentes de datos / BD del dominio",
-        (select string_agg(distinct m.desc_motor,', ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd join motor_bd m on m.id_motor_bd=b.id_motor_bd where pn.id_dominio=df.id_dominio) as "Motores involucrados",
-        (select string_agg(distinct left(trim(b.tipo_info_gest),45),' · ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and nullif(trim(b.tipo_info_gest),'') is not null) as "Tipo de información",
+        (select count(distinct abx.id_bd) from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where pn.id_dominio=df.id_dominio)::int as "N° BD",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where pn.id_dominio=df.id_dominio) as "Fuentes de datos / BD del dominio",
+        (select string_agg(distinct m.desc_motor,', ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join motor_bd m on m.id_motor_bd=b.id_motor_bd where pn.id_dominio=df.id_dominio) as "Motores involucrados",
+        (select string_agg(distinct left(trim(b.tipo_info_gest),45),' · ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where pn.id_dominio=df.id_dominio and nullif(trim(b.tipo_info_gest),'') is not null) as "Tipo de información",
         (select string_agg(distinct o.nombre_vigente, ' | ' order by o.nombre_vigente)
            from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
            join aplicacion_area aa on aa.id_aplicacion=ap.id_aplicacion
            join oficina o on trim(o.sigla)=trim(aa.sigla)
            where pn.id_dominio=df.id_dominio) as "Áreas usuarias",
-        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
-        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)=1) as "Fuentes exclusivas del dominio",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where pn.id_dominio=df.id_dominio and (select count(distinct pn2.id_dominio) from aplicacion_basedatos abx2 join dom_app ap2 on ap2.id_aplicacion=abx2.id_aplicacion join proceso_negocio pn2 on pn2.id_proceso=ap2.id_proceso where abx2.id_bd=b.id_bd)>1) as "Fuentes compartidas con otros dominios",
         coalesce(df.uso_principal,'') as "Uso principal",
         coalesce(df.nivel_relacion,'') as "Nivel de relación",
         df.obs_vacios as "Vacíos / solapamientos / dispersión",
@@ -454,10 +455,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         pn.desc_proceso as "Proceso de negocio",
         (select count(distinct ap.id_aplicacion) from dom_app ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
         (select string_agg(distinct a.id_app || coalesce(' ('||nullif(trim(a.abreviatura_app),'')||')',''), ', ') from dom_app ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
-        (select count(distinct abx.id_bd) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
-        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
-        (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
-        (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
+        (select count(distinct abx.id_bd) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
+        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
+        (select string_agg(distinct fe.entidad,', ' order by fe.entidad) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso) as "Entidades conceptuales (detectadas)",
+        (select string_agg(distinct left(b.tipo_info_gest,45),' · ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso and b.tipo_info_gest is not null) as "Tipo de información",
         coalesce(an.cobertura,'') as "Cobertura del dominio",
         coalesce(an.vacios,'') as "Vacíos",
         coalesce(an.solapamientos,'') as "Solapamientos / redundancias",

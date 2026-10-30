@@ -88,6 +88,8 @@ model base_de_datos {
   tipo_bd                                                  String?                @db.VarChar(80)
   tipo_info_gest                                           String?
   area_usuario_resp_onp                                    String?
+  en_modelo_conceptual                                     Boolean                @default(true)
+  clase_contenido                                          String?
   tamano_gb                                                Decimal?               @db.Decimal(14, 2)
   nro_esquemas                                             Int?
   nro_tablas                                               Int?
