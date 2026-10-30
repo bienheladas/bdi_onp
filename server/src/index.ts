@@ -477,6 +477,9 @@ async function trazaOf(id: string): Promise<Traza[]> {
 async function sendWb(res: any, wb: any, filename: string) {
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  // la URL termina en .xlsx (extensión que Cloudflare cachea por defecto): evitamos
+  // que se cachee para que la descarga sea siempre EN VIVO y no exponga respuestas con clave.
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   await wb.xlsx.write(res); res.end();
 }
 app.get("/api/artefactos.xlsx", async (_req, res) => {
