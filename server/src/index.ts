@@ -30,6 +30,7 @@ const LABELS: Record<string, string[]> = {
   dominio_funcional: ["desc_dominio"], proceso_negocio: ["desc_proceso"],
   servidor: ["nombre_servidor"], base_de_datos: ["nombre_bd"], aplicacion: ["id_app", "nombre_app"],
   oficina: ["sigla", "nombre_vigente"],
+  reunion_levantamiento: ["nro", "interlocutores"],
 };
 // Campos de texto respaldados por un catálogo => en la web se pintan como dropdown (no texto libre).
 const CATALOG_FIELDS: Record<string, Record<string, string>> = {

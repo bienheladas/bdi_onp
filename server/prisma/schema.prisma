@@ -209,6 +209,24 @@ model fuentes_institucionales {
   ip_modificacion            String?   @db.VarChar(45)
 }
 
+model reunion_levantamiento {
+  id                  Int       @id @default(autoincrement())
+  nro                 Int?
+  fecha_sesion        String?
+  tipo                String?
+  interlocutores      String?
+  areas_participantes String?
+  temas_tratados      String?
+  info_levantada      String?
+  acuerdos            String?
+  restricciones       String?
+  evidencia           String?
+  fecha_creacion      DateTime? @default(now()) @db.Timestamptz(6)
+  ip_creacion         String?   @db.VarChar(45)
+  fecha_modificacion  DateTime? @db.Timestamptz(6)
+  ip_modificacion     String?   @db.VarChar(45)
+}
+
 model motor_bd {
   id_motor_bd        Int             @id
   desc_motor         String          @unique @db.VarChar(60)
