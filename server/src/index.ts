@@ -364,7 +364,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Crecimiento (GB/mes)", "Redo (GB/día)", "TDE", "Fecha volumetría",
       "Servidor", "Datafiles asignados (GB)", "Datafiles usados (GB)", "% uso datafiles",
       "Disco servidor asignado (GB)", "Disco servidor usado (GB)", "% uso disco servidor",
-      "Relevancia p/ trazabilidad del expediente", "Observaciones de almacenamiento / crecimiento"],
+      "Relevancia para el expediente previsional", "Observaciones de almacenamiento / crecimiento"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd))::text,3,'0') as "ID",
@@ -417,10 +417,24 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         case when b.tamano_asignado_gb>0 then round(b.tamano_usado_gb*100/b.tamano_asignado_gb,1) end as "% uso datafiles",
         s.disco_asignado_gb as "Disco servidor asignado (GB)", s.disco_utilizado_gb as "Disco servidor usado (GB)",
         case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% uso disco servidor",
-        (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
-              when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
-              when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media *'
-              else '' end) as "Relevancia p/ trazabilidad del expediente",
+        (select case
+             when not hasapp then ''
+             when not bden then 'Baja — fuera del modelo conceptual (metadata/enlatado/soporte), no es fuente del expediente previsional *'
+             when core and tpw>=3 then 'Alta — contiene entidades núcleo del expediente previsional y soporta procesos misionales *'
+             when core then 'Media — contiene entidades núcleo del expediente previsional (sin proceso misional asociado) *'
+             when tpw>=3 then 'Media — soporta procesos misionales del expediente previsional (sin entidades núcleo detectadas) *'
+             when tpw=2 then 'Media — soporta dominios previsionales de gestión/estrategia *'
+             when tpw=1 then 'Baja — solo procesos de apoyo administrativo *'
+             else 'Baja — sin vínculo con dominios del expediente previsional *'
+           end
+           from (
+             select
+               b.en_modelo_conceptual as bden,
+               (lower(coalesce(b.entidades_conceptuales,'')||' '||coalesce(b.tipo_info_gest,'')) ~ '(expediente|pensi|prestaci|aporte|afiliad|asegurado|derecho|planilla|beneficiari|devengue|bono)') as core,
+               coalesce((select max(case when tp.desc_tipo_proceso ilike '%misional%' then 3 when tp.desc_tipo_proceso ilike '%estrat%' then 2 when tp.desc_tipo_proceso ilike '%soporte%' then 1 else 0 end)
+                 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) as tpw,
+               exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual where ab.id_bd=b.id_bd) as hasapp
+           ) z) as "Relevancia para el expediente previsional",
         coalesce(nullif(trim(
            (case when coalesce(b.tamano_asignado_gb,0)>0 and b.tamano_usado_gb*100.0/b.tamano_asignado_gb>=85 then 'Datafiles al '||round(b.tamano_usado_gb*100.0/b.tamano_asignado_gb)||'% de su asignado. ' else '' end)||
            (case when coalesce(b.crecimiento_gb,0)>0 then 'Crecimiento estimado ~'||b.crecimiento_gb||' GB/mes. ' else '' end)||
@@ -722,6 +736,64 @@ app.get("/api/flujo", async (_req, res) => {
       edges.push({ from: a, to: b, value: total, arrowTo: !!fwd, arrowFrom: !!bwd, color: col, dashes: dash, tip });
     }
     res.json({ nodes: [...nodes.values()], edges, maxw, domains: allDomains });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ---------------- Estructura física / DDL (esquema -> tabla -> columna) ----------------
+// Se registran ANTES del CRUD genérico para que /api/estructura_bd no lo intercepte /api/:model/:id.
+
+// Mapa { id_bd: n_tablas } (solo BD con >=1 tabla) => el cliente deshabilita el botón de las que no tienen.
+app.get("/api/estructura_bd", async (_req, res) => {
+  try {
+    const rows = await prisma.$queryRaw<{ id_bd: number; n: bigint }[]>`
+      select e.id_bd, count(t.id_tabla) n
+      from esquema e join tabla t on t.id_esquema = e.id_esquema
+      group by e.id_bd`;
+    const map: Record<string, number> = {};
+    for (const r of rows) map[String(r.id_bd)] = Number(r.n);
+    res.json(map);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Esquemas de una BD con su conteo de tablas, ordenados del más poblado al menos (default = [0]).
+app.get("/api/base_de_datos/:id/estructura", async (req, res) => {
+  try {
+    const id = +req.params.id;
+    const bd = await prisma.base_de_datos.findUnique({ where: { id_bd: id }, select: { nombre_bd: true } });
+    const esq = await prisma.esquema.findMany({
+      where: { id_bd: id },
+      select: { id_esquema: true, nombre_esquema: true, tipo: true, _count: { select: { tabla: true } } },
+    });
+    const esquemas = esq
+      .map((e) => ({ id_esquema: e.id_esquema, nombre_esquema: e.nombre_esquema, tipo: e.tipo, n_tablas: e._count.tabla }))
+      .sort((a, b) => b.n_tablas - a.n_tablas || collator.compare(a.nombre_esquema, b.nombre_esquema));
+    res.json({ nombre_bd: bd?.nombre_bd ?? null, esquemas });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Tablas de un esquema (búsqueda opcional por nombre) con su conteo de columnas.
+app.get("/api/esquema/:id/tablas", async (req, res) => {
+  try {
+    const id = +req.params.id;
+    const q = (req.query.q as string || "").trim();
+    const tabs = await prisma.tabla.findMany({
+      where: { id_esquema: id, ...(q ? { nombre_tabla: { contains: q, mode: "insensitive" } } : {}) },
+      select: { id_tabla: true, nombre_tabla: true, _count: { select: { columna: true } } },
+      orderBy: { nombre_tabla: "asc" }, take: 1000,
+    });
+    res.json(tabs.map((t) => ({ id_tabla: t.id_tabla, nombre_tabla: t.nombre_tabla, n_cols: t._count.columna })));
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Columnas de una tabla con toda su metadata (tipo/longitud/nullable/PK/comentario).
+app.get("/api/tabla/:id/columnas", async (req, res) => {
+  try {
+    const cols = await prisma.columna.findMany({
+      where: { id_tabla: +req.params.id },
+      select: { col_id: true, nombre_columna: true, tipo: true, longitud: true, nullable: true, es_pk: true, comentario: true },
+      orderBy: [{ col_id: "asc" }, { nombre_columna: "asc" }],
+    });
+    res.json(cols);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

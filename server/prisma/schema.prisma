@@ -296,6 +296,7 @@ model esquema {
   id_esquema         Int                  @id @default(autoincrement())
   id_bd              Int
   nombre_esquema     String               @db.VarChar(160)
+  tipo               String?              @db.VarChar(20)
   fecha_creacion     DateTime             @default(now()) @db.Timestamptz(6)
   ip_creacion        String?              @db.VarChar(45)
   fecha_modificacion DateTime?            @db.Timestamptz(6)

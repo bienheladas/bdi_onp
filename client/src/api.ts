@@ -54,4 +54,9 @@ export const api = {
   relUpd: (parent: string, id: any, key: string, childId: any, body: any) => req(`/api/${parent}/${id}/${key}/${childId}`, { method: "PUT", body: JSON.stringify(body) }),
   esqAdd: (idApp: any, idBd: any, nombre_esquema: string) => req(`/api/aplicacion/${idApp}/basedatos/${idBd}/esquemas`, { method: "POST", body: JSON.stringify({ nombre_esquema }) }),
   esqDel: (idApp: any, idBd: any, idEsq: any) => req(`/api/aplicacion/${idApp}/basedatos/${idBd}/esquemas/${idEsq}`, { method: "DELETE" }),
+  // Estructura física / DDL
+  estructuraBd: (): Promise<Record<string, number>> => req("/api/estructura_bd"),
+  bdEstructura: (idBd: any): Promise<{ nombre_bd: string | null; esquemas: { id_esquema: number; nombre_esquema: string; tipo: string | null; n_tablas: number }[] }> => req(`/api/base_de_datos/${idBd}/estructura`),
+  esquemaTablas: (idEsq: any, q = ""): Promise<{ id_tabla: number; nombre_tabla: string; n_cols: number }[]> => req(`/api/esquema/${idEsq}/tablas?q=${encodeURIComponent(q)}`),
+  tablaColumnas: (idTab: any): Promise<{ col_id: number | null; nombre_columna: string; tipo: string | null; longitud: string | null; nullable: string | null; es_pk: string | null; comentario: string | null }[]> => req(`/api/tabla/${idTab}/columnas`),
 };

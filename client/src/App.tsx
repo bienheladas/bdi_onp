@@ -253,6 +253,7 @@ const ICO: Record<string, any> = {
   app: <><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" /></>,
   link: <><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></>,
   org: <><path d="M3 21h18M6 21V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16" /><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2" /></>,
+  ddl: <><rect x="3" y="3" width="18" height="18" rx="1" /><path d="M3 9h18M9 3v18" /></>,
 };
 const relIco: Record<string, string> = { basedatos: "db", procesos: "proc", aplicaciones: "app", integraciones: "link", areas: "org" };
 const Ico = ({ n }: { n: string }) => (
@@ -267,6 +268,8 @@ function Grid({ model, models, opts, ensureOpts, go, pending, clearPending }: { 
   const [edit, setEdit] = useState<any | null>(null);  // registro en edición (o {} nuevo)
   const [rel, setRel] = useState<{ rel: Rel; row: any } | null>(null);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT[model.name] ? { field: DEFAULT_SORT[model.name], dir: "asc" } : null);
+  const [estr, setEstr] = useState<Record<string, number>>({});          // id_bd -> n_tablas (solo base_de_datos)
+  const [struct, setStruct] = useState<{ id: any; nombre: string } | null>(null);  // modal de estructura DDL
   const pk = model.pks[0];
   const cols = model.fields.filter((f) => f.type !== "Json" || true); // mostrar todas
   const actsLeft = ACTS_LEFT.has(model.name);
@@ -275,11 +278,17 @@ function Grid({ model, models, opts, ensureOpts, go, pending, clearPending }: { 
       <button className="btn xs sec ico" title="Editar" onClick={() => setEdit(r)}><Ico n="edit" /></button>
       <button className="btn xs danger ico" title="Eliminar" onClick={async () => { if (confirm("¿Eliminar registro?")) { try { await api.remove(model.name, r[pk]); load(); } catch (e: any) { alert(e.message); } } }}><Ico n="del" /></button>
       {model.relations.map((rl) => <button key={rl.key} className="btn xs ico" title={rl.label} onClick={() => { ensureOpts(rl.target); setRel({ rel: rl, row: r }); }}><Ico n={relIco[rl.key] || "link"} /></button>)}
+      {model.name === "base_de_datos" && (() => {
+        const n = estr[String(r[pk])] || 0;   // sin estructura DDL -> botón deshabilitado
+        return <button className="btn xs ico" disabled={!n} title={n ? `Estructura DDL (${n} tablas)` : "Sin estructura DDL cargada"} onClick={() => setStruct({ id: r[pk], nombre: r.nombre_bd })}><Ico n="ddl" /></button>;
+      })()}
     </div></td>
   );
 
   const load = () => api.list(model.name, q, page * PAGE, PAGE, sort).then((d) => { setRows(d.rows); setTotal(d.total); });
   useEffect(() => { load(); }, [model.name, page, sort]);
+  // mapa de estructura (qué BD tienen DDL) para habilitar/deshabilitar el botón
+  useEffect(() => { if (model.name === "base_de_datos") api.estructuraBd().then(setEstr).catch(() => {}); }, [model.name]);
   // clic en encabezado: asc -> desc -> asc ...; columna nueva empieza en asc y vuelve a la página 1
   const toggleSort = (f: Field) => {
     if (f.type === "Json") return;
@@ -334,7 +343,103 @@ function Grid({ model, models, opts, ensureOpts, go, pending, clearPending }: { 
 
       {edit && <RecordForm model={model} opts={opts} rec={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
       {rel && <RelationModal parent={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} rel={rel.rel} row={rel.row} onClose={() => setRel(null)} />}
+      {struct && <EstructuraModal idBd={struct.id} nombre={struct.nombre} onClose={() => setStruct(null)} />}
     </>
+  );
+}
+
+// Explorador de estructura DDL de una BD: elige esquema (por defecto el más poblado),
+// busca una tabla y muestra sus columnas con toda la metadata (tipo, longitud, PK, comentario).
+function EstructuraModal({ idBd, nombre, onClose }: { idBd: any; nombre: string; onClose: () => void }) {
+  const [esquemas, setEsquemas] = useState<{ id_esquema: number; nombre_esquema: string; tipo: string | null; n_tablas: number }[]>([]);
+  const [selEsq, setSelEsq] = useState<number | null>(null);
+  const [tablas, setTablas] = useState<{ id_tabla: number; nombre_tabla: string; n_cols: number }[]>([]);
+  const [q, setQ] = useState("");
+  const [selTab, setSelTab] = useState<{ id: number; nombre: string } | null>(null);
+  const [cols, setCols] = useState<any[]>([]);
+  const [err, setErr] = useState("");
+
+  // al abrir: trae esquemas (ordenados desc) y selecciona el más poblado; si ninguno tiene tablas, null
+  useEffect(() => {
+    api.bdEstructura(idBd).then((d) => {
+      setEsquemas(d.esquemas);
+      const first = d.esquemas[0];
+      setSelEsq(first && first.n_tablas > 0 ? first.id_esquema : null);
+    }).catch((e: any) => setErr(e.message));
+  }, [idBd]);
+
+  // tablas del esquema seleccionado (búsqueda con debounce)
+  useEffect(() => {
+    if (selEsq == null) { setTablas([]); setSelTab(null); setCols([]); return; }
+    setSelTab(null); setCols([]);
+    const t = setTimeout(() => { api.esquemaTablas(selEsq, q).then(setTablas).catch((e: any) => setErr(e.message)); }, 250);
+    return () => clearTimeout(t);
+  }, [selEsq, q]);
+
+  const openTabla = (t: { id_tabla: number; nombre_tabla: string }) => {
+    setSelTab({ id: t.id_tabla, nombre: t.nombre_tabla });
+    api.tablaColumnas(t.id_tabla).then(setCols).catch((e: any) => setErr(e.message));
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal wide" onClick={(e) => e.stopPropagation()} style={{ width: "min(1100px, 95vw)" }}>
+        <h3>Estructura DDL · {nombre}</h3>
+        {err && <div className="err">{err}</div>}
+        <div className="body" style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 14 }}>
+          <div>
+            <div className="frow"><label>Esquema</label>
+              <select value={selEsq ?? ""} onChange={(e) => setSelEsq(e.target.value === "" ? null : Number(e.target.value))}>
+                <option value="">— (sin esquema) —</option>
+                {esquemas.map((s) => <option key={s.id_esquema} value={s.id_esquema}>{s.nombre_esquema} ({s.n_tablas}){s.tipo ? ` · ${s.tipo}` : ""}</option>)}
+              </select>
+            </div>
+            <input className="search" style={{ width: "100%", margin: "8px 0" }} placeholder="Buscar tabla…" value={q} onChange={(e) => setQ(e.target.value)} disabled={selEsq == null} />
+            <div className="tablewrap" style={{ maxHeight: "54vh", overflow: "auto" }}>
+              <table>
+                <thead><tr><th>Tabla</th><th>#cols</th></tr></thead>
+                <tbody>
+                  {tablas.map((t) => (
+                    <tr key={t.id_tabla} style={{ cursor: "pointer", background: selTab?.id === t.id_tabla ? "#2a3350" : undefined }} onClick={() => openTabla(t)}>
+                      <td>{t.nombre_tabla}</td><td>{t.n_cols}</td>
+                    </tr>
+                  ))}
+                  {selEsq != null && tablas.length === 0 && <tr><td colSpan={2} className="muted">Sin tablas.</td></tr>}
+                  {selEsq == null && <tr><td colSpan={2} className="muted">Elige un esquema.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            {!selTab ? <p className="muted">Selecciona una tabla para ver sus columnas.</p> : (
+              <>
+                <div className="toolbar" style={{ marginBottom: 8 }}><b>{selTab.nombre}</b> <span className="pill">{cols.length} columnas</span></div>
+                <div className="tablewrap" style={{ maxHeight: "58vh", overflow: "auto" }}>
+                  <table>
+                    <thead><tr><th>#</th><th>Columna</th><th>Tipo</th><th>Long.</th><th>Nulo</th><th>PK</th><th>Comentario</th></tr></thead>
+                    <tbody>
+                      {cols.map((c, i) => (
+                        <tr key={i}>
+                          <td>{c.col_id ?? ""}</td>
+                          <td>{c.nombre_columna}</td>
+                          <td>{c.tipo ?? ""}</td>
+                          <td>{c.longitud ?? ""}</td>
+                          <td>{c.nullable ?? ""}</td>
+                          <td style={{ textAlign: "center" }}>{c.es_pk === "Y" ? "🔑" : ""}</td>
+                          <td title={c.comentario ?? ""}>{c.comentario ?? ""}</td>
+                        </tr>
+                      ))}
+                      {cols.length === 0 && <tr><td colSpan={7} className="muted">Sin columnas.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="foot"><button className="btn sec" onClick={onClose}>Cerrar</button></div>
+      </div>
+    </div>
   );
 }
 
