@@ -87,6 +87,7 @@ model base_de_datos {
   desc_base_datos                                          String?
   tipo_bd                                                  String?                @db.VarChar(80)
   tipo_info_gest                                           String?
+  entidades_conceptuales                                   String?
   area_usuario_resp_onp                                    String?
   en_modelo_conceptual                                     Boolean                @default(true)
   clase_contenido                                          String?
