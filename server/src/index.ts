@@ -740,6 +740,35 @@ app.get("/api/flujo", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------- Modelo conceptual de datos AS-IS (en vivo vs PG) ----------------
+// Nodos = entidades conceptuales (coloreadas por dominio de información);
+// aristas = relaciones conceptuales (con cardinalidad). Refleja lo editado en la web.
+app.get("/api/modelo_conceptual", async (_req, res) => {
+  try {
+    const PAL: Record<string, string> = {
+      "Personas": "#C74634", "Aportes": "#2B6CB0", "Expedientes": "#2C7A7B", "Derechos y prestaciones": "#6B46C1",
+      "Pagos y planillas": "#B7791F", "Seguros": "#3A7D44", "Inversiones": "#0E7490", "Atención al asegurado": "#BE5C00",
+      "Documentos y notificaciones": "#718096", "Riesgos": "#9B2C2C",
+    };
+    const ents = await prisma.$queryRawUnsafe<any[]>(
+      `select e.id_entidad, e.nombre, e.dominio_info, e.es_nucleo, e.descripcion,
+         (select count(distinct fe.id_bd)::int from fuente_entidad fe join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where fe.entidad=e.nombre) nf
+       from entidad_conceptual e order by e.id_entidad`);
+    const rels = await prisma.$queryRawUnsafe<any[]>(
+      `select eo.nombre origen, ed.nombre destino, r.descripcion, r.cardinalidad
+       from relacion_conceptual r join entidad_conceptual eo on eo.id_entidad=r.id_origen
+       join entidad_conceptual ed on ed.id_entidad=r.id_destino order by r.id_relacion`);
+    const domains = [...new Set(ents.map((e) => e.dominio_info))];
+    const nodes = ents.map((e) => ({
+      id: e.nombre, label: e.nombre, group: e.dominio_info, color: PAL[e.dominio_info] || "#607D8B",
+      borderWidth: e.es_nucleo ? 3 : 1,
+      tip: `<b>${e.nombre}</b><br>Dominio: ${e.dominio_info}<br>${e.descripcion || ""}<br>Fuentes AS-IS (en alcance): ${e.nf}` + (e.es_nucleo ? "<br><i>entidad núcleo del expediente</i>" : ""),
+    }));
+    const edges = rels.map((r) => ({ from: r.origen, to: r.destino, label: r.cardinalidad, title: r.descripcion }));
+    res.json({ nodes, edges, domains, palette: PAL });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ---------------- Estructura física / DDL (esquema -> tabla -> columna) ----------------
 // Se registran ANTES del CRUD genérico para que /api/estructura_bd no lo intercepte /api/:model/:id.
 

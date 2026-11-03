@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Modelo Conceptual de Datos AS-IS · ONP</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#1b1f27;color:#e6e6e6}
+  #bar{padding:9px 16px;background:#11141a;border-bottom:1px solid #333;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  #bar h1{font-size:15px;margin:0 12px 0 0;font-weight:600}
+  #net{width:100%;height:calc(100vh - 92px)}
+  .leg{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:#cbd5e0}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  #tip{position:absolute;display:none;max-width:320px;background:#0c0f14;border:1px solid #4a5568;border-radius:6px;
+       padding:9px 11px;font-size:12.5px;line-height:1.5;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:10}
+  #sub{padding:4px 16px;background:#11141a;font-size:11px;color:#8a93a2;border-bottom:1px solid #333}
+  #err{display:none;padding:20px;color:#f0a0a0}
+</style></head><body>
+<div id="bar"><h1>Modelo Conceptual de Datos AS-IS — ONP</h1>
+  <span style="color:#6a8;font-size:11px">en vivo vs Postgres</span>
+  <button id="relayout" style="background:#2d3748;color:#e6e6e6;border:1px solid #4a5568;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">Reacomodar</button>
+  <span id="legend" style="display:inline-flex;gap:12px;flex-wrap:wrap"></span>
+</div>
+<div id="sub">Entidades núcleo del expediente con borde grueso · las flechas indican la relación (cardinalidad en la etiqueta)</div>
+<div id="net"></div><div id="tip"></div><div id="err"></div>
+<script>
+(window.__MC__
+  ? Promise.resolve(window.__MC__)
+  : fetch('/api/modelo_conceptual',{headers:{'x-admin-key':localStorage.getItem('adminkey')||''}})
+      .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}))
+  .then(DATA=>init(DATA))
+  .catch(e=>{const el=document.getElementById('err');el.style.display='block';el.textContent='No se pudo cargar el modelo conceptual: '+e.message;});
+
+function init(DATA){
+  const PAL=DATA.palette||{};
+  document.getElementById('legend').innerHTML=(DATA.domains||[]).map(d=>
+    '<span class=leg><span class=sw style="background:'+(PAL[d]||'#607D8B')+'"></span>'+d+'</span>').join('');
+  const nodes=new vis.DataSet(DATA.nodes.map(n=>({id:n.id,label:n.label,shape:'box',
+    color:{background:n.color,border:n.borderWidth>1?'#fff':'#0008',highlight:{background:n.color,border:'#f0c674'}},
+    borderWidth:n.borderWidth,font:{color:'#fff',size:14,face:'Segoe UI'},_tip:n.tip})));
+  const edges=new vis.DataSet(DATA.edges.map((e,i)=>({id:i,from:e.from,to:e.to,label:e.label,
+    arrows:{to:{enabled:true,scaleFactor:0.6}},
+    font:{color:'#cbd5e0',size:11,strokeWidth:3,strokeColor:'#11141a',align:'middle'},
+    color:{color:'#8aa0b6',highlight:'#f0c674'},smooth:{type:'cubicBezier'},_tip:e._tip||e.title})));
+  const net=new vis.Network(document.getElementById('net'),{nodes,edges},{
+    layout:{improvedLayout:true,randomSeed:12},nodes:{widthConstraint:{maximum:150}},
+    physics:{barnesHut:{gravitationalConstant:-12000,springLength:160,springConstant:0.04,avoidOverlap:0.5},stabilization:{iterations:450}},
+    interaction:{hover:true,tooltipDelay:99999,navigationButtons:true,keyboard:true,dragNodes:true}});
+  net.once('stabilizationIterationsDone',()=>{net.setOptions({physics:false});net.fit();});
+  document.getElementById('relayout').onclick=()=>{net.setOptions({physics:true});net.stabilize();
+    net.once('stabilizationIterationsDone',()=>net.setOptions({physics:false}));};
+  const tip=document.getElementById('tip');
+  function show(ev,id,ds){const o=ds.get(id);if(o&&o._tip){tip.innerHTML=o._tip;tip.style.display='block';
+    tip.style.left=(ev.pageX+14)+'px';tip.style.top=(ev.pageY+10)+'px';}else tip.style.display='none';}
+  net.on('hoverNode',p=>show(p.event,p.node,nodes));net.on('blurNode',()=>tip.style.display='none');
+  net.on('hoverEdge',p=>show(p.event,p.edge,edges));net.on('blurEdge',()=>tip.style.display='none');
+}
+</script></body></html>

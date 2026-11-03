@@ -57,13 +57,15 @@ export default function App() {
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
         <div className="grp">Reportería</div>
-        <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🗺 Mapa de flujo</a>
+        <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🗺 Mapa de flujo de datos</a>
+        <a className={cur === "__modelo__" ? "active" : ""} onClick={() => setCur("__modelo__")}>🧩 Modelo conceptual</a>
         <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos</a>
       </nav>
       <main className="main">
         {cur === "__pend__"
           ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} go={go} />
           : cur === "__flujo__" ? <Flujo />
+          : cur === "__modelo__" ? <ModeloConceptual />
           : cur === "__artefactos__" ? <Artefactos />
           : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} pending={pending} clearPending={() => setPending(null)} /> : <p>Cargando…</p>}
       </main>
@@ -79,6 +81,19 @@ function Flujo() {
         <a className="btn" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">Abrir en pestaña nueva ↗</a>
       </div>
       <iframe src="/flujo_datos_onp.html" title="Mapa de flujo de datos ONP"
+        style={{ width: "100%", height: "calc(100vh - 150px)", border: "1px solid #334", borderRadius: 8, background: "#1b1f27" }} />
+    </>
+  );
+}
+
+function ModeloConceptual() {
+  return (
+    <>
+      <div className="toolbar">
+        <h2>Modelo conceptual de datos (AS-IS)</h2>
+        <a className="btn" href="/modelo_conceptual.html" target="_blank" rel="noreferrer">Abrir en pestaña nueva ↗</a>
+      </div>
+      <iframe src="/modelo_conceptual.html" title="Modelo conceptual de datos ONP"
         style={{ width: "100%", height: "calc(100vh - 150px)", border: "1px solid #334", borderRadius: 8, background: "#1b1f27" }} />
     </>
   );
@@ -181,7 +196,7 @@ function Artefactos() {
           {meta.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.titulo}</option>)}
         </select>
         <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
-        {sel === "ADI-05" && <a className="btn sec" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">🗺 Mapa de flujo ↗</a>}
+        {sel === "ADI-05" && <a className="btn sec" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">🗺 Mapa de flujo de datos ↗</a>}
         {sel && <a className="btn sec" onClick={() => api.xlsx(`/api/artefacto/${encodeURIComponent(sel)}/xlsx`, `${sel}.xlsx`).catch((e) => alert(e.message))}>⬇ Este (.xlsx)</a>}
         <a className="btn" onClick={() => api.xlsx("/api/artefactos.xlsx", "Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx").catch((e) => alert(e.message))}>⬇ Descargar todo (.xlsx)</a>
       </div>
