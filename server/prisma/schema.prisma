@@ -179,6 +179,7 @@ model integracion_datastage {
   tabla_destino          String?
   usa_archivo_plano      Boolean?      @default(false)
   sql_extraccion         String?
+  job_padre              String?
   fecha_creacion         DateTime      @default(now()) @db.Timestamptz(6)
   ip_creacion            String?       @db.VarChar(45)
   fecha_modificacion     DateTime?     @db.Timestamptz(6)

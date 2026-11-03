@@ -199,7 +199,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
       "Tipo de relación / dependencia", "Mecanismo de integración", "Información intercambiada",
       "Proceso / dominio / área", "Frecuencia", "Responsable", "Limitaciones / restricciones",
-      "Riesgos generales", "Detalle (job / DB link)"],
+      "Riesgos generales", "Detalle (job / DB link)", "Secuencia(s) padre (agrupador)"],
     sql: `
       select
         (row_number() over (order by i.mecanismo, i.id_integracion))::int as "N°",
@@ -244,7 +244,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                'Enlace: '||coalesce(i.nombre_enlace,'')||'; Owner: '||coalesce(dl.owner,'')||'; Visibilidad: '||(case when dl.es_publico then 'Público' else 'Privado' end)||'; Usuario remoto: '||coalesce(dl.usuario_remoto,'')
              when i.mecanismo='ETL DataStage' then
                'Job: '||coalesce(i.nombre_enlace,'')||coalesce('; Tabla(s) destino: '||nullif(trim(d.tabla_destino),''),'')||coalesce('; Modo: '||nullif(trim(d.modo_carga),''),'')||coalesce('; Objetivo: '||nullif(trim(d.objetivo),''),'')
-             else '' end as "Detalle (job / DB link)"
+             else '' end as "Detalle (job / DB link)",
+        coalesce(d.job_padre,'') as "Secuencia(s) padre (agrupador)"
       from integraciones i
       left join base_de_datos bo on bo.id_bd=i.id_bd_origen
       left join motor_bd mo on mo.id_motor_bd=bo.id_motor_bd
