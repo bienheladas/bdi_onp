@@ -369,3 +369,25 @@ model oficina {
   padre          oficina?  @relation("jerarquia_oficina", fields: [sigla_padre], references: [sigla], onDelete: NoAction, onUpdate: NoAction)
   hijos          oficina[] @relation("jerarquia_oficina")
 }
+
+// Modelo conceptual de datos AS-IS (E3/AMC)
+model entidad_conceptual {
+  id_entidad   Int                   @id @default(autoincrement())
+  nombre       String                @unique @db.VarChar(60)
+  dominio_info String                @db.VarChar(60)
+  es_nucleo    Boolean?              @default(false)
+  descripcion  String?
+  rel_origen   relacion_conceptual[] @relation("rc_origen")
+  rel_destino  relacion_conceptual[] @relation("rc_destino")
+}
+
+model relacion_conceptual {
+  id_relacion  Int                 @id @default(autoincrement())
+  id_origen    Int?
+  id_destino   Int?
+  descripcion  String?
+  cardinalidad String?             @db.VarChar(10)
+  observacion  String?
+  entidad_origen  entidad_conceptual? @relation("rc_origen", fields: [id_origen], references: [id_entidad], onDelete: NoAction, onUpdate: NoAction)
+  entidad_destino entidad_conceptual? @relation("rc_destino", fields: [id_destino], references: [id_entidad], onDelete: NoAction, onUpdate: NoAction)
+}

@@ -3,6 +3,7 @@ import { api, setKey, Model, Field, Opt, Rel } from "./api";
 
 const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio", "oficina"];
 const ENT = ["servidor", "base_de_datos", "aplicacion"];
+const MC = ["entidad_conceptual", "relacion_conceptual"];
 const PAGE = 50;
 // Orden inicial de las vistas principales (el resto, por su PK); clic en un encabezado lo cambia
 const DEFAULT_SORT: Record<string, string> = { base_de_datos: "nombre_bd", servidor: "nombre_servidor", aplicacion: "id_app" };
@@ -47,8 +48,12 @@ export default function App() {
         {CAT.map((n) => models.find((m) => m.name === n) && (
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
-        <div className="grp">Entidades</div>
+        <div className="grp">Inventarios</div>
         {ENT.map((n) => models.find((m) => m.name === n) && (
+          <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
+        ))}
+        <div className="grp">Modelo conceptual</div>
+        {MC.map((n) => models.find((m) => m.name === n) && (
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
         <div className="grp">Reportería</div>
