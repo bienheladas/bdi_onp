@@ -129,6 +129,20 @@ function LinkChips({ items, onClick, empty = "—" }: { items: string[]; onClick
   if (!items.length) return <span className="eco-muted">{empty}</span>;
   return <div className="eco-chips">{items.map((x, i) => <button className="eco-chip" key={i} title="Ver ficha" onClick={() => onClick(x)}>{x}</button>)}</div>;
 }
+// Paleta por dominio de datos del SIIP (misma del modelo conceptual del HTML).
+const SIIP_PAL: Record<string, string> = {
+  "Personas": "#C74634", "Aportes": "#2B6CB0", "Expedientes": "#2C7A7B", "Derechos y prestaciones": "#6B46C1",
+  "Pagos y planillas": "#B7791F", "Seguros": "#3A7D44", "Inversiones": "#0E7490", "Atención al asegurado": "#BE5C00",
+  "Documentos y notificaciones": "#718096", "Riesgos": "#9B2C2C", "Usuario/Seguridad": "#4A5568", "Documento": "#718096", "Atención": "#BE5C00",
+};
+// Chips de entidad coloreados por su dominio SIIP.
+function EntChips({ items, domOf, empty = "—" }: { items: string[]; domOf: (e: string) => string | undefined; empty?: string }) {
+  if (!items.length) return <span className="eco-muted">{empty}</span>;
+  return <div className="eco-chips">{items.map((x, i) => {
+    const c = SIIP_PAL[domOf(x) || ""] || "#5b6472";
+    return <span className="eco-chip" key={i} style={{ background: "#fff", borderColor: c, color: c }} title={domOf(x) || ""}>{x}</span>;
+  })}</div>;
+}
 function EcoRow({ k, children }: { k: string; children: ReactNode }) {
   return <div className="eco-grow"><dt>{k}</dt><dd>{children}</dd></div>;
 }
@@ -172,6 +186,8 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
     [K.procesos, "Procesos"], [K.entidades, "Entidades"], [K.relaciones, "Relaciones"], [K.integraciones, "Integraciones"],
   ];
   const title = ECO_TITLE[view] ?? ECO_VIEWS.find(([k]) => k === view)?.[1] ?? "Ecosistema";
+  const entDom: Record<string, string> = {};   // entidad -> dominio SIIP (para colorear chips)
+  d.siip.forEach((r) => sp(r.ents).forEach((e) => { entDom[e] = r.dominio; }));
 
   return (
     <div className="eco">
@@ -190,7 +206,7 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
                 <EcoRow k="Bases (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("dom", b, "bd")} empty="Sin BD en alcance" /></EcoRow>
                 <EcoRow k="Dominios"><LinkChips items={sp(s.doms)} onClick={(x) => goto("dom", x, "dom")} /></EcoRow>
                 <EcoRow k="Procesos"><LinkChips items={sp(s.procs)} onClick={(x) => goto("pro", x)} /></EcoRow>
-                <EcoRow k="Entidades"><Chips items={sp(s.ents)} /></EcoRow>
+                <EcoRow k="Entidades"><EntChips items={sp(s.ents)} domOf={(e) => entDom[e]} /></EcoRow>
                 <EcoRow k="Áreas usuarias"><Chips items={sp(s.areas)} empty="—" /></EcoRow>
                 <EcoRow k="Gestor / Responsable">{[s.gestor, s.respf].filter(Boolean).join(" · ") || "—"}</EcoRow>
               </dl></>} />}
@@ -209,7 +225,7 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
                   <div className="eco-m">{s.nent} entidades · {s.nf} fuentes AS-IS · <span className={"tag " + (s.nf === 0 ? "tg-red" : s.nf < 3 ? "tg-amber" : "tg-green")}>{nivel}</span></div>
                   <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
                   <dl className="eco-dl">
-                    <EcoRow k="Entidades conceptuales"><Chips items={sp(s.ents)} /></EcoRow>
+                    <EcoRow k="Entidades conceptuales"><EntChips items={sp(s.ents)} domOf={() => s.dominio} /></EcoRow>
                     <EcoRow k="Fuentes AS-IS (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("dom", b, "bd")} empty="Ninguna" /></EcoRow>
                   </dl>
                 </div>
