@@ -87,6 +87,9 @@ tr:hover td { background:var(--light); }
 .eco-side button:hover { background:var(--grey); }
 .eco-side button.on { background:var(--light); border-left-color:var(--blue); color:var(--navy); font-weight:600; }
 .eco-content { flex:1; min-width:0; }
+.eco-subtabs { display:flex; gap:6px; margin-bottom:12px; }
+.eco-subtabs button { background:#fff; border:1px solid var(--line); border-radius:6px; padding:6px 14px; font:inherit; font-size:12.5px; cursor:pointer; color:var(--navy); }
+.eco-subtabs button.on { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
 .eco-split { display:grid; grid-template-columns:minmax(260px,360px) 1fr; gap:14px; align-items:start; }
 @media(max-width:1000px){ .eco-split{ grid-template-columns:1fr; } }
 .eco-list { display:flex; flex-direction:column; gap:7px; max-height:calc(100vh - 250px); overflow:auto; padding-right:4px; }

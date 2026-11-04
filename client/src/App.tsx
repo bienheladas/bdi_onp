@@ -57,12 +57,12 @@ export default function App() {
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
         <div className="grp">Ecosistema de Datos ONP</div>
-        <a className={cur === "__eco_sis__" ? "active" : ""} onClick={() => setCur("__eco_sis__")}>👥 Sistemas</a>
-        <a className={cur === "__eco_dom__" ? "active" : ""} onClick={() => setCur("__eco_dom__")}>🗂 Dominios y bases</a>
-        <a className={cur === "__eco_pro__" ? "active" : ""} onClick={() => setCur("__eco_pro__")}>⚙ Procesos</a>
+        <a className={cur === "__eco_sis__" ? "active" : ""} onClick={() => { ecoFocus = null; ecoSub = null; setCur("__eco_sis__"); }}>👥 Sistemas</a>
+        <a className={cur === "__eco_dom__" ? "active" : ""} onClick={() => { ecoFocus = null; ecoSub = null; setCur("__eco_dom__"); }}>🗂 Dominios y bases</a>
+        <a className={cur === "__eco_pro__" ? "active" : ""} onClick={() => { ecoFocus = null; ecoSub = null; setCur("__eco_pro__"); }}>⚙ Procesos</a>
         <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🔗 Integraciones</a>
-        <a className={cur === "__eco_siip__" ? "active" : ""} onClick={() => setCur("__eco_siip__")}>🎯 Trazabilidad al SIIP</a>
-        <a className={cur === "__eco_cob__" ? "active" : ""} onClick={() => setCur("__eco_cob__")}>🕳 Cobertura y vacíos</a>
+        <a className={cur === "__eco_siip__" ? "active" : ""} onClick={() => { ecoFocus = null; ecoSub = null; setCur("__eco_siip__"); }}>🎯 Trazabilidad al SIIP</a>
+        <a className={cur === "__eco_cob__" ? "active" : ""} onClick={() => { ecoFocus = null; ecoSub = null; setCur("__eco_cob__"); }}>🕳 Cobertura y vacíos</a>
         <a className={cur === "__modelo__" ? "active" : ""} onClick={() => setCur("__modelo__")}>🧩 Modelo conceptual</a>
         <div className="grp">Reportería</div>
         <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos · 2.º entregable</a>
@@ -119,6 +119,7 @@ const ECO_TITLE: Record<string, string> = { fte: "Fuente / BD" };   // vistas si
 const sp = (s: string | null | undefined) => (s ? s.split("§").filter(Boolean) : []);
 let ecoCache: EcoData | null = null;   // se consulta una vez; se comparte entre las vistas
 let ecoFocus: string | null = null;    // clave a preseleccionar en la vista destino tras un link
+let ecoSub: "dom" | "bd" | null = null; // sub-pestaña destino dentro de "Dominios y bases"
 function Chips({ items, empty = "—" }: { items: string[]; empty?: string }) {
   if (!items.length) return <span className="eco-muted">{empty}</span>;
   return <div className="eco-chips">{items.map((x, i) => <span className="eco-chip" key={i}>{x}</span>)}</div>;
@@ -141,15 +142,15 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
   // las vistas ArtExplorer consumen ecoFocus por su cuenta).
   useEffect(() => {
     if (!d) { return; }
-    if (view === "sis") { const f = ecoFocus; ecoFocus = null; setSel(f ? (d.sistemas.find((s) => s.cod === f) ?? null) : null); }
+    if (view === "sis") { setSel(ecoFocus ? (d.sistemas.find((s) => s.cod === ecoFocus) ?? null) : null); }
     else { setSel(null); }
   }, [view, d]);
 
   if (err) return <div className="err" style={{ margin: 20 }}>{err}</div>;
   if (!d) return <p style={{ padding: 24 }}>Cargando ecosistema…</p>;
 
-  // navega a otra vista del explorador preseleccionando 'key'
-  const goto = (v: string, key: string) => { ecoFocus = key; nav(`__eco_${v}__`); };
+  // navega a otra vista del explorador preseleccionando 'key' (sub = pestaña dentro de Dominios y bases)
+  const goto = (v: string, key: string, sub?: "dom" | "bd") => { ecoFocus = key; ecoSub = sub ?? null; nav(`__eco_${v}__`); };
   const K = d.kpis;
   const kpis: [number, string][] = [
     [K.bd, "BD en alcance"], [K.apps, "Aplicaciones"], [K.dominios, "Dominios"],
@@ -171,22 +172,18 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
                 <EcoRow k="Estado">{s.estado || "—"}{s.criticidad ? ` · criticidad ${s.criticidad}` : ""}</EcoRow>
                 {s.descripcion && <EcoRow k="Descripción">{s.descripcion}</EcoRow>}
                 {s.uso && <EcoRow k="Uso de la información">{s.uso}</EcoRow>}
-                <EcoRow k="Bases (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("fte", b)} empty="Sin BD en alcance" /></EcoRow>
-                <EcoRow k="Dominios"><LinkChips items={sp(s.doms)} onClick={(x) => goto("dom", x)} /></EcoRow>
+                <EcoRow k="Bases (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("dom", b, "bd")} empty="Sin BD en alcance" /></EcoRow>
+                <EcoRow k="Dominios"><LinkChips items={sp(s.doms)} onClick={(x) => goto("dom", x, "dom")} /></EcoRow>
                 <EcoRow k="Procesos"><LinkChips items={sp(s.procs)} onClick={(x) => goto("pro", x)} /></EcoRow>
                 <EcoRow k="Entidades"><Chips items={sp(s.ents)} /></EcoRow>
                 <EcoRow k="Áreas usuarias"><Chips items={sp(s.areas)} empty="—" /></EcoRow>
                 <EcoRow k="Gestor / Responsable">{[s.gestor, s.respf].filter(Boolean).join(" · ") || "—"}</EcoRow>
               </dl></>} />}
 
-          {view === "dom" && <ArtExplorer artId="ADI-04" nameCol="Dominio funcional (normalizado)"
-            metaCols={["Tipo de proceso", "N° BD", "Nivel de relación"]} focus={ecoFocus} />}
+          {view === "dom" && <DomBasesView />}
 
           {view === "pro" && <ArtExplorer artId="ADI-09" nameCol="Proceso de negocio"
             metaCols={["Tipo de proceso", "Dominio funcional", "N° fuentes"]} focus={ecoFocus} />}
-
-          {view === "fte" && <ArtExplorer artId="ADI-03" nameCol="Fuente / BD"
-            metaCols={["Motor", "Ambiente", "Servidor", "Tamaño (GB)"]} focus={ecoFocus} />}
 
           {view === "siip" && <div className="eco-cards">
             {d.siip.map((s, i) => {
@@ -198,7 +195,7 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
                   <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
                   <dl className="eco-dl">
                     <EcoRow k="Entidades conceptuales"><Chips items={sp(s.ents)} /></EcoRow>
-                    <EcoRow k="Fuentes AS-IS (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("fte", b)} empty="Ninguna" /></EcoRow>
+                    <EcoRow k="Fuentes AS-IS (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("dom", b, "bd")} empty="Ninguna" /></EcoRow>
                   </dl>
                 </div>
               );
@@ -224,7 +221,6 @@ function ArtExplorer({ artId, nameCol, metaCols, focus }: { artId: string; nameC
     const ni = Math.max(0, a.columns.indexOf(nameCol));
     const idx = a.rows.findIndex((r) => r[ni] === focus);
     if (idx >= 0) setI(idx);
-    ecoFocus = null;
   }, [a, focus, nameCol]);
   if (err) return <div className="err">{err}</div>;
   if (!a) return <p className="eco-muted" style={{ padding: 10 }}>Cargando {artId}…</p>;
@@ -244,6 +240,24 @@ function ArtExplorer({ artId, nameCol, metaCols, focus }: { artId: string; nameC
         </dl></>}
       </div>
     </div>
+  );
+}
+
+// Vista "Dominios y bases": muestra AMBAS dimensiones (ADI-04 dominios + ADI-03 bases) con un
+// sub-selector. Entrando por el menú arranca en Dominios; por el link de una BD, en Bases y
+// con esa BD seleccionada.
+function DomBasesView() {
+  const [sub, setSub] = useState<"dom" | "bd">(ecoSub ?? "dom");
+  return (
+    <>
+      <div className="eco-subtabs">
+        <button className={sub === "dom" ? "on" : ""} onClick={() => setSub("dom")}>Dominios</button>
+        <button className={sub === "bd" ? "on" : ""} onClick={() => setSub("bd")}>Bases de datos</button>
+      </div>
+      {sub === "dom"
+        ? <ArtExplorer artId="ADI-04" nameCol="Dominio funcional (normalizado)" metaCols={["Tipo de proceso", "N° BD", "Nivel de relación"]} focus={ecoFocus} />
+        : <ArtExplorer artId="ADI-03" nameCol="Fuente / BD" metaCols={["Motor", "Ambiente", "Servidor", "Tamaño (GB)"]} focus={ecoFocus} />}
+    </>
   );
 }
 
