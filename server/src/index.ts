@@ -800,7 +800,9 @@ app.get("/api/ecosistema", async (_req, res) => {
         (select string_agg(distinct b.nombre_bd,'${SEP}') from aplicacion_basedatos ab join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ab.id_aplicacion=a.id) bases,
         (select string_agg(distinct df.desc_dominio,'${SEP}') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio where ap.id_aplicacion=a.id) doms,
         (select string_agg(distinct pn.desc_proceso,'${SEP}') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso where ap.id_aplicacion=a.id) procs,
-        (select string_agg(distinct fe.entidad,'${SEP}') from aplicacion_basedatos ab join fuente_entidad fe on fe.id_bd=ab.id_bd join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ab.id_aplicacion=a.id) ents
+        (select string_agg(distinct fe.entidad,'${SEP}') from aplicacion_basedatos ab join fuente_entidad fe on fe.id_bd=ab.id_bd join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ab.id_aplicacion=a.id) ents,
+        (select string_agg(distinct o.nombre_vigente,'${SEP}') from aplicacion_area aa join oficina o on trim(o.sigla)=trim(aa.sigla) where aa.id_aplicacion=a.id) areas,
+        a.gestor_resp gestor, a.nombre_lider_usuario respf, a.uso_informacion uso, a.desc_app descripcion
       from aplicacion a where a.en_modelo_conceptual order by a.id_app`);
 
     // 2) Dominios funcionales con procesos/bases/apps en alcance
@@ -838,7 +840,9 @@ app.get("/api/ecosistema", async (_req, res) => {
     const siip = await raw(`
       select e.dominio_info dominio, count(*)::int nent, string_agg(distinct e.nombre,'${SEP}') ents,
         (select count(distinct fe.id_bd)::int from fuente_entidad fe join entidad_conceptual e2 on e2.nombre=fe.entidad
-          join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where e2.dominio_info=e.dominio_info) nf
+          join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where e2.dominio_info=e.dominio_info) nf,
+        (select string_agg(distinct b.nombre_bd,'${SEP}') from fuente_entidad fe join entidad_conceptual e2 on e2.nombre=fe.entidad
+          join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where e2.dominio_info=e.dominio_info) bases
       from entidad_conceptual e group by e.dominio_info order by nent desc, dominio`);
 
     res.json({ kpis, sistemas, dominios, procesos, entidades, relaciones, siip });

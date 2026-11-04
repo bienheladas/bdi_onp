@@ -152,49 +152,68 @@ function Ecosistema({ view }: { view: string }) {
               <h3>{s.cod} · {s.nombre}</h3>
               <dl className="eco-dl">
                 <EcoRow k="Estado">{s.estado || "—"}{s.criticidad ? ` · criticidad ${s.criticidad}` : ""}</EcoRow>
+                {s.descripcion && <EcoRow k="Descripción">{s.descripcion}</EcoRow>}
+                {s.uso && <EcoRow k="Uso de la información">{s.uso}</EcoRow>}
                 <EcoRow k="Bases (en alcance)"><Chips items={sp(s.bases)} empty="Sin BD en alcance" /></EcoRow>
                 <EcoRow k="Dominios"><Chips items={sp(s.doms)} /></EcoRow>
                 <EcoRow k="Procesos"><Chips items={sp(s.procs)} /></EcoRow>
                 <EcoRow k="Entidades"><Chips items={sp(s.ents)} /></EcoRow>
+                <EcoRow k="Áreas usuarias"><Chips items={sp(s.areas)} empty="—" /></EcoRow>
+                <EcoRow k="Gestor / Responsable">{[s.gestor, s.respf].filter(Boolean).join(" · ") || "—"}</EcoRow>
               </dl></>} />}
 
-          {view === "dom" && <EcoSplit
-            items={d.dominios} keyOf={(x) => x.nombre} sel={sel} onSel={setSel}
-            card={(x) => <><div className="eco-t">{x.nombre}</div><div className="eco-m">{x.tipo || "—"} · {x.nproc} procesos · {sp(x.bases).length} BD</div></>}
-            detail={(x) => <>
-              <h3>{x.nombre}</h3>
-              <dl className="eco-dl">
-                <EcoRow k="Tipo de proceso">{x.tipo || "—"}</EcoRow>
-                <EcoRow k="Procesos"><Chips items={sp(x.procs)} /></EcoRow>
-                <EcoRow k="Aplicaciones"><Chips items={sp(x.apps)} empty="Sin apps en alcance" /></EcoRow>
-                <EcoRow k="Bases (en alcance)"><Chips items={sp(x.bases)} empty="Sin BD en alcance" /></EcoRow>
-              </dl></>} />}
+          {view === "dom" && <ArtExplorer artId="ADI-04" nameCol="Dominio funcional (normalizado)"
+            metaCols={["Tipo de proceso", "N° BD", "Nivel de relación"]} />}
 
-          {view === "pro" && <EcoSplit
-            items={d.procesos} keyOf={(x) => x.proceso} sel={sel} onSel={setSel}
-            card={(x) => <><div className="eco-t">{x.proceso}</div><div className="eco-m">{x.tipo || "—"} · {x.dominio} · {sp(x.apps).length} apps · {sp(x.bases).length} BD</div></>}
-            detail={(x) => <>
-              <h3>{x.proceso}</h3>
-              <dl className="eco-dl">
-                <EcoRow k="Dominio">{x.dominio}</EcoRow>
-                <EcoRow k="Tipo">{x.tipo || "—"}</EcoRow>
-                <EcoRow k="Aplicaciones"><Chips items={sp(x.apps)} empty="Sin apps en alcance" /></EcoRow>
-                <EcoRow k="Bases (en alcance)"><Chips items={sp(x.bases)} empty="Sin BD en alcance" /></EcoRow>
-                <EcoRow k="Entidades"><Chips items={sp(x.ents)} /></EcoRow>
-              </dl></>} />}
+          {view === "pro" && <ArtExplorer artId="ADI-09" nameCol="Proceso de negocio"
+            metaCols={["Tipo de proceso", "Dominio funcional", "N° fuentes"]} />}
 
           {view === "siip" && <div className="eco-cards">
-            {d.siip.map((s, i) => (
-              <div className="eco-card2" key={i}>
-                <div className="eco-t">{s.dominio}</div>
-                <div className="eco-m">{s.nent} entidades · cubiertas por {s.nf} fuentes AS-IS</div>
-                <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
-                <Chips items={sp(s.ents)} />
-              </div>
-            ))}
+            {d.siip.map((s, i) => {
+              const nivel = s.nf === 0 ? "Sin cobertura AS-IS" : s.nf < 3 ? "Cobertura parcial" : "Cobertura amplia";
+              return (
+                <div className="eco-card2" key={i}>
+                  <div className="eco-t">{s.dominio}</div>
+                  <div className="eco-m">{s.nent} entidades · {s.nf} fuentes AS-IS · <b>{nivel}</b></div>
+                  <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
+                  <dl className="eco-dl">
+                    <EcoRow k="Entidades conceptuales"><Chips items={sp(s.ents)} /></EcoRow>
+                    <EcoRow k="Fuentes AS-IS (en alcance)"><Chips items={sp(s.bases)} empty="Ninguna" /></EcoRow>
+                  </dl>
+                </div>
+              );
+            })}
           </div>}
 
           {view === "cob" && <EcoCobertura d={d} />}
+      </div>
+    </div>
+  );
+}
+
+// Explorador genérico sobre un artefacto en vivo (ADI-04/09): lista por 'nameCol' y el
+// panel de detalle muestra TODAS las columnas no vacías de la fila (máxima riqueza).
+function ArtExplorer({ artId, nameCol, metaCols }: { artId: string; nameCol: string; metaCols?: string[] }) {
+  const [a, setA] = useState<{ columns: string[]; rows: string[][] } | null>(null);
+  const [err, setErr] = useState("");
+  const [i, setI] = useState<number | null>(null);
+  useEffect(() => { setI(null); setA(null); api.artefacto(artId).then((x) => setA({ columns: x.columns, rows: x.rows })).catch((e) => setErr(e.message)); }, [artId]);
+  if (err) return <div className="err">{err}</div>;
+  if (!a) return <p className="eco-muted" style={{ padding: 10 }}>Cargando {artId}…</p>;
+  const ni = Math.max(0, a.columns.indexOf(nameCol));
+  const metaIdx = (metaCols || []).map((c) => a.columns.indexOf(c)).filter((x) => x >= 0);
+  return (
+    <div className="eco-split">
+      <div className="eco-list">{a.rows.map((r, ri) => (
+        <button key={ri} className={"eco-card" + (i === ri ? " sel" : "")} onClick={() => setI(ri)}>
+          <div className="eco-t">{r[ni] || "—"}</div>
+          {metaIdx.length > 0 && <div className="eco-m">{metaIdx.map((mi) => r[mi]).filter(Boolean).join(" · ")}</div>}
+        </button>))}
+      </div>
+      <div className="eco-panel">{i == null ? <span className="eco-muted">Selecciona un elemento de la lista.</span> :
+        <><h3>{a.rows[i][ni] || "—"}</h3><dl className="eco-dl">
+          {a.columns.map((c, ci) => (ci === ni || !a.rows[i][ci]) ? null : <EcoRow k={c} key={ci}>{a.rows[i][ci]}</EcoRow>)}
+        </dl></>}
       </div>
     </div>
   );

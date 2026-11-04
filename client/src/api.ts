@@ -10,12 +10,12 @@ export type Opt = { value: any; label: string };
 // Explorador "Ecosistema de Datos ONP" (live). Los campos de lista llegan como texto con '§'.
 export type EcoData = {
   kpis: { bd: number; apps: number; dominios: number; procesos: number; entidades: number; relaciones: number; integraciones: number };
-  sistemas: { cod: string; nombre: string; estado: string | null; criticidad: string | null; bases: string | null; doms: string | null; procs: string | null; ents: string | null }[];
+  sistemas: { cod: string; nombre: string; estado: string | null; criticidad: string | null; bases: string | null; doms: string | null; procs: string | null; ents: string | null; areas: string | null; gestor: string | null; respf: string | null; uso: string | null; descripcion: string | null }[];
   dominios: { nombre: string; tipo: string | null; nproc: number; procs: string | null; apps: string | null; bases: string | null }[];
   procesos: { proceso: string; dominio: string; tipo: string | null; apps: string | null; bases: string | null; ents: string | null }[];
   entidades: { nombre: string; dominio: string; nucleo: boolean; descripcion: string | null; nf: number; bases: string | null }[];
   relaciones: { origen: string; destino: string; cardinalidad: string | null; descripcion: string | null }[];
-  siip: { dominio: string; nent: number; ents: string | null; nf: number }[];
+  siip: { dominio: string; nent: number; ents: string | null; nf: number; bases: string | null }[];
 };
 
 let KEY = localStorage.getItem("adminkey") || "";
