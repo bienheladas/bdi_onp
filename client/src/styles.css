@@ -78,9 +78,22 @@ tr:hover td { background:var(--light); }
 
 /* ===== Ecosistema de Datos ONP ===== */
 .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:9px; margin-bottom:14px; }
-.kpi { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+.kpi { background:#fff; border:1px solid var(--line); border-left:3px solid var(--blue); border-radius:8px; padding:10px 12px; }
 .kpi .n { font-size:22px; font-weight:700; color:var(--blue); line-height:1.1; }
 .kpi .l { font-size:11px; color:#5b6472; margin-top:2px; }
+.kpis .kpi:nth-child(1){border-left-color:#0b4da2}.kpis .kpi:nth-child(1) .n{color:#0b4da2}
+.kpis .kpi:nth-child(2){border-left-color:#0e7490}.kpis .kpi:nth-child(2) .n{color:#0e7490}
+.kpis .kpi:nth-child(3){border-left-color:#6b46c1}.kpis .kpi:nth-child(3) .n{color:#6b46c1}
+.kpis .kpi:nth-child(4){border-left-color:#0f7a4d}.kpis .kpi:nth-child(4) .n{color:#0f7a4d}
+.kpis .kpi:nth-child(5){border-left-color:#b56a00}.kpis .kpi:nth-child(5) .n{color:#b56a00}
+.kpis .kpi:nth-child(6){border-left-color:#be5c00}.kpis .kpi:nth-child(6) .n{color:#be5c00}
+.kpis .kpi:nth-child(7){border-left-color:#b3261e}.kpis .kpi:nth-child(7) .n{color:#b3261e}
+/* badges de color (por tipo de proceso, criticidad, estado, alcance, motor) */
+.tag { display:inline-block; padding:2px 8px; border-radius:11px; font-size:11px; font-weight:600; line-height:1.6; }
+.tg-blue{background:#e8f0fb;color:#0b4da2}.tg-green{background:#e6f4ed;color:#0f7a4d}
+.tg-amber{background:#fdf2e0;color:#b56a00}.tg-red{background:#fbeae9;color:#b3261e}
+.tg-grey{background:#eef0f4;color:#5b6472}.tg-teal{background:#e0f2f1;color:#0e7490}
+.tg-violet{background:#efe7fb;color:#6b46c1}
 .eco-layout { display:flex; gap:14px; align-items:flex-start; }
 .eco-side { flex:0 0 190px; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; position:sticky; top:14px; }
 .eco-side button { display:block; width:100%; text-align:left; background:none; border:0; border-left:3px solid transparent; padding:11px 13px; font:inherit; font-size:12.5px; color:#23272e; cursor:pointer; }

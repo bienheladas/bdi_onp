@@ -132,6 +132,21 @@ function LinkChips({ items, onClick, empty = "—" }: { items: string[]; onClick
 function EcoRow({ k, children }: { k: string; children: ReactNode }) {
   return <div className="eco-grow"><dt>{k}</dt><dd>{children}</dd></div>;
 }
+// Decoración: color de badge según el valor de ciertas dimensiones (como en el HTML).
+function tagClass(col: string, v: string): string | null {
+  const t = (v || "").trim().toLowerCase().replace(/\s*\*$/, "");
+  if (/tipo de proceso|tproc/i.test(col)) return /misional/.test(t) ? "tg-blue" : /estrat/.test(t) ? "tg-teal" : /soporte/.test(t) ? "tg-grey" : "tg-grey";
+  if (/criticidad|nivel|dependencia|relevancia/i.test(col)) return /alta/.test(t) ? "tg-red" : /media/.test(t) ? "tg-amber" : /baja/.test(t) ? "tg-green" : null;
+  if (/estado/i.test(col)) return /(operativo|activo|^sí|^si)/.test(t) ? "tg-green" : /(baja|candidat|desuso)/.test(t) ? "tg-red" : null;
+  if (/alcance/i.test(col)) return /^sí|^si\b/.test(t) ? "tg-green" : /^no/.test(t) ? "tg-red" : null;
+  if (/^motor/i.test(col)) return /oracle/.test(t) ? "tg-red" : /sql ?server/.test(t) ? "tg-blue" : /db2/.test(t) ? "tg-teal" : /mysql/.test(t) ? "tg-amber" : /postgre/.test(t) ? "tg-violet" : "tg-grey";
+  return null;
+}
+function Tag({ col, v }: { col: string; v: string | null | undefined }) {
+  if (!v) return <span className="eco-muted">—</span>;
+  const cls = tagClass(col, v);
+  return cls ? <span className={"tag " + cls}>{v}</span> : <>{v}</>;
+}
 
 function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
   const [d, setD] = useState<EcoData | null>(ecoCache);
@@ -169,7 +184,7 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
             detail={(s) => <>
               <h3>{s.cod} · {s.nombre}</h3>
               <dl className="eco-dl">
-                <EcoRow k="Estado">{s.estado || "—"}{s.criticidad ? ` · criticidad ${s.criticidad}` : ""}</EcoRow>
+                <EcoRow k="Estado"><Tag col="Estado" v={s.estado} />{s.criticidad ? <> · <Tag col="Criticidad" v={s.criticidad} /></> : null}</EcoRow>
                 {s.descripcion && <EcoRow k="Descripción">{s.descripcion}</EcoRow>}
                 {s.uso && <EcoRow k="Uso de la información">{s.uso}</EcoRow>}
                 <EcoRow k="Bases (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("dom", b, "bd")} empty="Sin BD en alcance" /></EcoRow>
@@ -191,7 +206,7 @@ function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
               return (
                 <div className="eco-card2" key={i}>
                   <div className="eco-t">{s.dominio}</div>
-                  <div className="eco-m">{s.nent} entidades · {s.nf} fuentes AS-IS · <b>{nivel}</b></div>
+                  <div className="eco-m">{s.nent} entidades · {s.nf} fuentes AS-IS · <span className={"tag " + (s.nf === 0 ? "tg-red" : s.nf < 3 ? "tg-amber" : "tg-green")}>{nivel}</span></div>
                   <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
                   <dl className="eco-dl">
                     <EcoRow k="Entidades conceptuales"><Chips items={sp(s.ents)} /></EcoRow>
@@ -231,12 +246,16 @@ function ArtExplorer({ artId, nameCol, metaCols, focus }: { artId: string; nameC
       <div className="eco-list">{a.rows.map((r, ri) => (
         <button key={ri} className={"eco-card" + (i === ri ? " sel" : "")} onClick={() => setI(ri)}>
           <div className="eco-t">{r[ni] || "—"}</div>
-          {metaIdx.length > 0 && <div className="eco-m">{metaIdx.map((mi) => r[mi]).filter(Boolean).join(" · ")}</div>}
+          {metaIdx.length > 0 && <div className="eco-m">{metaIdx.map((mi, k) => {
+            const val = r[mi]; if (!val) return null;
+            const cls = tagClass(a.columns[mi], val);
+            return <span key={k}>{k > 0 && !cls ? " · " : " "}{cls ? <span className={"tag " + cls}>{val}</span> : val}</span>;
+          })}</div>}
         </button>))}
       </div>
       <div className="eco-panel">{i == null ? <span className="eco-muted">Selecciona un elemento de la lista.</span> :
         <><h3>{a.rows[i][ni] || "—"}</h3><dl className="eco-dl">
-          {a.columns.map((c, ci) => (ci === ni || !a.rows[i][ci]) ? null : <EcoRow k={c} key={ci}>{a.rows[i][ci]}</EcoRow>)}
+          {a.columns.map((c, ci) => (ci === ni || !a.rows[i][ci]) ? null : <EcoRow k={c} key={ci}><Tag col={c} v={a.rows[i][ci]} /></EcoRow>)}
         </dl></>}
       </div>
     </div>
