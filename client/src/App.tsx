@@ -60,10 +60,10 @@ export default function App() {
         <a className={cur === "__eco_sis__" ? "active" : ""} onClick={() => setCur("__eco_sis__")}>👥 Sistemas</a>
         <a className={cur === "__eco_dom__" ? "active" : ""} onClick={() => setCur("__eco_dom__")}>🗂 Dominios y bases</a>
         <a className={cur === "__eco_pro__" ? "active" : ""} onClick={() => setCur("__eco_pro__")}>⚙ Procesos</a>
-        <a className={cur === "__modelo__" ? "active" : ""} onClick={() => setCur("__modelo__")}>🧩 Modelo conceptual</a>
         <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🔗 Integraciones</a>
         <a className={cur === "__eco_siip__" ? "active" : ""} onClick={() => setCur("__eco_siip__")}>🎯 Trazabilidad al SIIP</a>
         <a className={cur === "__eco_cob__" ? "active" : ""} onClick={() => setCur("__eco_cob__")}>🕳 Cobertura y vacíos</a>
+        <a className={cur === "__modelo__" ? "active" : ""} onClick={() => setCur("__modelo__")}>🧩 Modelo conceptual</a>
         <div className="grp">Reportería</div>
         <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos · 2.º entregable</a>
       </nav>
@@ -72,7 +72,7 @@ export default function App() {
           ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} go={go} />
           : cur === "__flujo__" ? <Flujo />
           : cur === "__modelo__" ? <ModeloConceptual />
-          : cur.startsWith("__eco_") ? <Ecosistema view={cur.slice(6, -2)} />
+          : cur.startsWith("__eco_") ? <Ecosistema view={cur.slice(6, -2)} nav={setCur} />
           : cur === "__artefactos__" ? <Artefactos />
           : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} pending={pending} clearPending={() => setPending(null)} /> : <p>Cargando…</p>}
       </main>
@@ -114,33 +114,48 @@ const ECO_VIEWS: [string, string][] = [
   ["sis", "Sistemas"], ["dom", "Dominios y bases"], ["pro", "Procesos"],
   ["siip", "Trazabilidad al SIIP"], ["cob", "Cobertura y vacíos"],
 ];
-const ECO_ICON: Record<string, string> = { sis: "👥", dom: "🗂", pro: "⚙", siip: "🎯", cob: "🕳" };
+const ECO_ICON: Record<string, string> = { sis: "👥", dom: "🗂", pro: "⚙", siip: "🎯", cob: "🕳", fte: "🗄" };
+const ECO_TITLE: Record<string, string> = { fte: "Fuente / BD" };   // vistas sin ítem de menú
 const sp = (s: string | null | undefined) => (s ? s.split("§").filter(Boolean) : []);
-let ecoCache: EcoData | null = null;   // se consulta una vez; se comparte entre las 5 vistas
+let ecoCache: EcoData | null = null;   // se consulta una vez; se comparte entre las vistas
+let ecoFocus: string | null = null;    // clave a preseleccionar en la vista destino tras un link
 function Chips({ items, empty = "—" }: { items: string[]; empty?: string }) {
   if (!items.length) return <span className="eco-muted">{empty}</span>;
   return <div className="eco-chips">{items.map((x, i) => <span className="eco-chip" key={i}>{x}</span>)}</div>;
+}
+// Chips clicables que navegan a otra vista del explorador (BD→ficha, dominio→ADI-04, etc.)
+function LinkChips({ items, onClick, empty = "—" }: { items: string[]; onClick: (x: string) => void; empty?: string }) {
+  if (!items.length) return <span className="eco-muted">{empty}</span>;
+  return <div className="eco-chips">{items.map((x, i) => <button className="eco-chip" key={i} title="Ver ficha" onClick={() => onClick(x)}>{x}</button>)}</div>;
 }
 function EcoRow({ k, children }: { k: string; children: ReactNode }) {
   return <div className="eco-grow"><dt>{k}</dt><dd>{children}</dd></div>;
 }
 
-function Ecosistema({ view }: { view: string }) {
+function Ecosistema({ view, nav }: { view: string; nav: (c: string) => void }) {
   const [d, setD] = useState<EcoData | null>(ecoCache);
   const [err, setErr] = useState("");
   const [sel, setSel] = useState<any>(null);
   useEffect(() => { if (!ecoCache) api.ecosistema().then((x) => { ecoCache = x; setD(x); }).catch((e) => setErr(e.message)); }, []);
-  useEffect(() => { setSel(null); }, [view]);
+  // al entrar a una vista: si venimos de un link, preselecciona (sis se resuelve aquí;
+  // las vistas ArtExplorer consumen ecoFocus por su cuenta).
+  useEffect(() => {
+    if (!d) { return; }
+    if (view === "sis") { const f = ecoFocus; ecoFocus = null; setSel(f ? (d.sistemas.find((s) => s.cod === f) ?? null) : null); }
+    else { setSel(null); }
+  }, [view, d]);
 
   if (err) return <div className="err" style={{ margin: 20 }}>{err}</div>;
   if (!d) return <p style={{ padding: 24 }}>Cargando ecosistema…</p>;
 
+  // navega a otra vista del explorador preseleccionando 'key'
+  const goto = (v: string, key: string) => { ecoFocus = key; nav(`__eco_${v}__`); };
   const K = d.kpis;
   const kpis: [number, string][] = [
     [K.bd, "BD en alcance"], [K.apps, "Aplicaciones"], [K.dominios, "Dominios"],
     [K.procesos, "Procesos"], [K.entidades, "Entidades"], [K.relaciones, "Relaciones"], [K.integraciones, "Integraciones"],
   ];
-  const title = ECO_VIEWS.find(([k]) => k === view)?.[1] ?? "Ecosistema";
+  const title = ECO_TITLE[view] ?? ECO_VIEWS.find(([k]) => k === view)?.[1] ?? "Ecosistema";
 
   return (
     <div className="eco">
@@ -156,19 +171,22 @@ function Ecosistema({ view }: { view: string }) {
                 <EcoRow k="Estado">{s.estado || "—"}{s.criticidad ? ` · criticidad ${s.criticidad}` : ""}</EcoRow>
                 {s.descripcion && <EcoRow k="Descripción">{s.descripcion}</EcoRow>}
                 {s.uso && <EcoRow k="Uso de la información">{s.uso}</EcoRow>}
-                <EcoRow k="Bases (en alcance)"><Chips items={sp(s.bases)} empty="Sin BD en alcance" /></EcoRow>
-                <EcoRow k="Dominios"><Chips items={sp(s.doms)} /></EcoRow>
-                <EcoRow k="Procesos"><Chips items={sp(s.procs)} /></EcoRow>
+                <EcoRow k="Bases (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("fte", b)} empty="Sin BD en alcance" /></EcoRow>
+                <EcoRow k="Dominios"><LinkChips items={sp(s.doms)} onClick={(x) => goto("dom", x)} /></EcoRow>
+                <EcoRow k="Procesos"><LinkChips items={sp(s.procs)} onClick={(x) => goto("pro", x)} /></EcoRow>
                 <EcoRow k="Entidades"><Chips items={sp(s.ents)} /></EcoRow>
                 <EcoRow k="Áreas usuarias"><Chips items={sp(s.areas)} empty="—" /></EcoRow>
                 <EcoRow k="Gestor / Responsable">{[s.gestor, s.respf].filter(Boolean).join(" · ") || "—"}</EcoRow>
               </dl></>} />}
 
           {view === "dom" && <ArtExplorer artId="ADI-04" nameCol="Dominio funcional (normalizado)"
-            metaCols={["Tipo de proceso", "N° BD", "Nivel de relación"]} />}
+            metaCols={["Tipo de proceso", "N° BD", "Nivel de relación"]} focus={ecoFocus} />}
 
           {view === "pro" && <ArtExplorer artId="ADI-09" nameCol="Proceso de negocio"
-            metaCols={["Tipo de proceso", "Dominio funcional", "N° fuentes"]} />}
+            metaCols={["Tipo de proceso", "Dominio funcional", "N° fuentes"]} focus={ecoFocus} />}
+
+          {view === "fte" && <ArtExplorer artId="ADI-03" nameCol="Fuente / BD"
+            metaCols={["Motor", "Ambiente", "Servidor", "Tamaño (GB)"]} focus={ecoFocus} />}
 
           {view === "siip" && <div className="eco-cards">
             {d.siip.map((s, i) => {
@@ -180,7 +198,7 @@ function Ecosistema({ view }: { view: string }) {
                   <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
                   <dl className="eco-dl">
                     <EcoRow k="Entidades conceptuales"><Chips items={sp(s.ents)} /></EcoRow>
-                    <EcoRow k="Fuentes AS-IS (en alcance)"><Chips items={sp(s.bases)} empty="Ninguna" /></EcoRow>
+                    <EcoRow k="Fuentes AS-IS (en alcance)"><LinkChips items={sp(s.bases)} onClick={(b) => goto("fte", b)} empty="Ninguna" /></EcoRow>
                   </dl>
                 </div>
               );
@@ -195,11 +213,19 @@ function Ecosistema({ view }: { view: string }) {
 
 // Explorador genérico sobre un artefacto en vivo (ADI-04/09): lista por 'nameCol' y el
 // panel de detalle muestra TODAS las columnas no vacías de la fila (máxima riqueza).
-function ArtExplorer({ artId, nameCol, metaCols }: { artId: string; nameCol: string; metaCols?: string[] }) {
+function ArtExplorer({ artId, nameCol, metaCols, focus }: { artId: string; nameCol: string; metaCols?: string[]; focus?: string | null }) {
   const [a, setA] = useState<{ columns: string[]; rows: string[][] } | null>(null);
   const [err, setErr] = useState("");
   const [i, setI] = useState<number | null>(null);
   useEffect(() => { setI(null); setA(null); api.artefacto(artId).then((x) => setA({ columns: x.columns, rows: x.rows })).catch((e) => setErr(e.message)); }, [artId]);
+  // si llegamos por un link, preselecciona la fila cuyo nombre coincide (y consume el foco)
+  useEffect(() => {
+    if (!a || !focus) return;
+    const ni = Math.max(0, a.columns.indexOf(nameCol));
+    const idx = a.rows.findIndex((r) => r[ni] === focus);
+    if (idx >= 0) setI(idx);
+    ecoFocus = null;
+  }, [a, focus, nameCol]);
   if (err) return <div className="err">{err}</div>;
   if (!a) return <p className="eco-muted" style={{ padding: 10 }}>Cargando {artId}…</p>;
   const ni = Math.max(0, a.columns.indexOf(nameCol));

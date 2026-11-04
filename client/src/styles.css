@@ -101,7 +101,9 @@ tr:hover td { background:var(--light); }
 .eco-grow dt { font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:#5b6472; margin-bottom:3px; }
 .eco-grow dd { margin:0; }
 .eco-chips { display:flex; flex-wrap:wrap; gap:5px; }
-.eco-chip { background:var(--light); color:var(--navy); border:1px solid #cfe0f7; border-radius:5px; padding:2px 8px; font-size:11.5px; }
+.eco-chip { background:var(--light); color:var(--navy); border:1px solid #cfe0f7; border-radius:5px; padding:2px 8px; font-size:11.5px; font-family:inherit; }
+button.eco-chip { cursor:pointer; }
+button.eco-chip:hover { background:var(--blue); color:#fff; border-color:var(--blue); }
 .eco-muted { color:#8a93a3; font-size:12.5px; }
 .eco-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:11px; }
 .eco-card2 { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
