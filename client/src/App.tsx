@@ -531,6 +531,8 @@ function RecordForm({ model, opts, rec, onClose, onSaved }: { model: Model; opts
   });
   const [form, setForm] = useState<any>(init);
   const [err, setErr] = useState("");
+  const [cascade, setCascade] = useState<{ id_bd: number; nombre_bd: string; compartida: boolean; otras_apps: string[] }[] | null>(null);
+  const wasEnModelo = model.name === "aplicacion" && !!rec.en_modelo_conceptual;   // estaba en alcance antes de editar
 
   const editable = model.fields.filter((f) => !(f.isPk && f.hasDefault) && !f.auto);  // oculta PK identity y auditoría
   const set = (n: string, v: any) => setForm((p: any) => ({ ...p, [n]: v }));
@@ -546,11 +548,18 @@ function RecordForm({ model, opts, rec, onClose, onSaved }: { model: Model; opts
         else if (f.type === "DateTime") body[f.name] = v.length === 10 ? v + "T00:00:00.000Z" : v;
         else body[f.name] = v;
       }
-      if (isNew) await api.create(model.name, body);
-      else await api.update(model.name, rec[model.pks[0]] ?? model.pks.map((k) => rec[k]).join("/"), body);
+      if (isNew) { await api.create(model.name, body); onSaved(); return; }
+      await api.update(model.name, rec[model.pks[0]] ?? model.pks.map((k) => rec[k]).join("/"), body);
+      // Al sacar una aplicación del modelo conceptual, ofrecer cascada a sus BD asociadas.
+      if (wasEnModelo && body.en_modelo_conceptual === false) {
+        const prev = await api.bdCascadaPreview(rec[model.pks[0]]);
+        if (prev.length) { setCascade(prev); return; }   // abre el modal; onSaved se llama al resolverlo
+      }
       onSaved();
     } catch (e: any) { setErr(e.message); }
   };
+
+  if (cascade) return <CascadeModal appId={rec[model.pks[0]]} rows={cascade} onDone={onSaved} />;
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -568,6 +577,45 @@ function RecordForm({ model, opts, rec, onClose, onSaved }: { model: Model; opts
         <div className="foot">
           <button className="btn sec" onClick={onClose}>Cancelar</button>
           <button className="btn" onClick={save}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modal que aparece al sacar una app del modelo conceptual: pregunta si sacar también
+// sus BD asociadas. Las compartidas (usadas por otras apps en alcance) vienen desmarcadas.
+function CascadeModal({ appId, rows, onDone }: { appId: any; rows: { id_bd: number; nombre_bd: string; compartida: boolean; otras_apps: string[] }[]; onDone: () => void }) {
+  const [sel, setSel] = useState<Record<number, boolean>>(() => Object.fromEntries(rows.map((r) => [r.id_bd, !r.compartida])));
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const toggle = (id: number) => setSel((s) => ({ ...s, [id]: !s[id] }));
+  const apply = async () => {
+    setBusy(true);
+    try {
+      const ids = rows.filter((r) => sel[r.id_bd]).map((r) => r.id_bd);
+      if (ids.length) await api.bdCascadaApply(appId, ids);
+      onDone();
+    } catch (e: any) { setErr(e.message); setBusy(false); }
+  };
+  return (
+    <div className="overlay" onClick={() => onDone()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Sacar también las BD del modelo conceptual</h3>
+        <p className="muted">La aplicación salió del alcance. ¿Quieres sacar también del modelo conceptual sus bases de datos asociadas? Las que aún usan otras aplicaciones en alcance vienen desmarcadas (quedan como están para tratamiento manual).</p>
+        {err && <div className="err">{err}</div>}
+        <div className="body">
+          {rows.map((r) => (
+            <label className="frow" key={r.id_bd} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={!!sel[r.id_bd]} onChange={() => toggle(r.id_bd)} />
+              <span>{r.nombre_bd}</span>
+              {r.compartida && <span className="muted"> · en alcance también por: {r.otras_apps.join(", ")}</span>}
+            </label>
+          ))}
+        </div>
+        <div className="foot">
+          <button className="btn sec" disabled={busy} onClick={() => onDone()}>No, dejarlas</button>
+          <button className="btn" disabled={busy} onClick={apply}>Sacar las seleccionadas</button>
         </div>
       </div>
     </div>

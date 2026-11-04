@@ -136,6 +136,7 @@ model integraciones {
   mecanismo                                                String?        @db.VarChar(120)
   nombre_enlace                                            String?        @db.VarChar(200)
   estado_enlace                                            String?        @db.VarChar(40)
+  origen_dato                                              String?        @db.VarChar(20)
   fecha_creacion                                           DateTime       @default(now()) @db.Timestamptz(6)
   ip_creacion                                              String?        @db.VarChar(45)
   fecha_modificacion                                       DateTime?      @db.Timestamptz(6)
@@ -351,6 +352,7 @@ model tabla {
   id_tabla           Int       @id @default(autoincrement())
   id_esquema         Int
   nombre_tabla       String    @db.VarChar(200)
+  desc_tabla         String?   @db.Text
   fecha_creacion     DateTime  @default(now()) @db.Timestamptz(6)
   ip_creacion        String?   @db.VarChar(45)
   fecha_modificacion DateTime? @db.Timestamptz(6)

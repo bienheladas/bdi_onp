@@ -965,6 +965,45 @@ app.delete("/api/aplicacion/:id/basedatos/:id_bd", async (req, res) => {
   try { await delAppBd(+req.params.id, +req.params.id_bd); res.json({ ok: true }); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
+// Cascada de alcance: BD en alcance ligadas a esta app (para preguntar si salen tambien
+// del modelo conceptual cuando la app sale). 'compartida' = la usan OTRAS apps en alcance.
+app.get("/api/aplicacion/:id/bd-cascada", async (req, res) => {
+  try {
+    const id = +req.params.id;
+    const links = await prisma.aplicacion_basedatos.findMany({
+      where: { id_aplicacion: id, base_de_datos: { en_modelo_conceptual: true } },
+      include: { base_de_datos: { select: { id_bd: true, nombre_bd: true } } },
+      orderBy: { base_de_datos: { nombre_bd: "asc" } },
+    });
+    const out = [];
+    for (const l of links) {
+      const otras = await prisma.aplicacion_basedatos.findMany({
+        where: { id_bd: l.id_bd, id_aplicacion: { not: id }, aplicacion: { en_modelo_conceptual: true } },
+        include: { aplicacion: { select: { id_app: true } } },
+      });
+      out.push({
+        id_bd: l.id_bd, nombre_bd: l.base_de_datos.nombre_bd,
+        compartida: otras.length > 0, otras_apps: otras.map((o) => o.aplicacion.id_app),
+      });
+    }
+    res.json(out);
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+app.post("/api/aplicacion/:id/bd-cascada", async (req, res) => {
+  try {
+    const id = +req.params.id;
+    const ids: number[] = (req.body.ids || []).map(Number).filter(Boolean);
+    if (!ids.length) return res.json({ updated: 0 });
+    // Solo BD realmente ligadas a esta app (evita actualizar ids arbitrarios)
+    const valid = await prisma.aplicacion_basedatos.findMany({ where: { id_aplicacion: id, id_bd: { in: ids } }, select: { id_bd: true } });
+    const vset = valid.map((v) => v.id_bd);
+    const r = await prisma.base_de_datos.updateMany({
+      where: { id_bd: { in: vset } },
+      data: { en_modelo_conceptual: false, fecha_modificacion: new Date(), ip_modificacion: clientIp(req) },
+    });
+    res.json({ updated: r.count });
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
 // esquemas de un par app–BD. El esquema fisico vive en el maestro 'esquema' (por BD);
 // aqui se crea/borra el VINCULO app<->esquema en la junction 'esquema_aplicacion'.
 app.post("/api/aplicacion/:id/basedatos/:id_bd/esquemas", async (req, res) => {

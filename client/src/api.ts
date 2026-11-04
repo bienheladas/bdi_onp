@@ -52,6 +52,9 @@ export const api = {
   relAdd: (parent: string, id: any, key: string, body: any) => req(`/api/${parent}/${id}/${key}`, { method: "POST", body: JSON.stringify(body) }),
   relDel: (parent: string, id: any, key: string, childId: any) => req(`/api/${parent}/${id}/${key}/${childId}`, { method: "DELETE" }),
   relUpd: (parent: string, id: any, key: string, childId: any, body: any) => req(`/api/${parent}/${id}/${key}/${childId}`, { method: "PUT", body: JSON.stringify(body) }),
+  // Cascada de alcance al sacar una app del modelo conceptual
+  bdCascadaPreview: (idApp: any): Promise<{ id_bd: number; nombre_bd: string; compartida: boolean; otras_apps: string[] }[]> => req(`/api/aplicacion/${idApp}/bd-cascada`),
+  bdCascadaApply: (idApp: any, ids: number[]): Promise<{ updated: number }> => req(`/api/aplicacion/${idApp}/bd-cascada`, { method: "POST", body: JSON.stringify({ ids }) }),
   esqAdd: (idApp: any, idBd: any, nombre_esquema: string) => req(`/api/aplicacion/${idApp}/basedatos/${idBd}/esquemas`, { method: "POST", body: JSON.stringify({ nombre_esquema }) }),
   esqDel: (idApp: any, idBd: any, idEsq: any) => req(`/api/aplicacion/${idApp}/basedatos/${idBd}/esquemas/${idEsq}`, { method: "DELETE" }),
   // Estructura física / DDL
