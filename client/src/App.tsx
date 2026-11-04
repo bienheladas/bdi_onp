@@ -57,11 +57,13 @@ export default function App() {
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
         <div className="grp">Ecosistema de Datos ONP</div>
-        <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🗺 Mapa de flujo de datos</a>
+        <a className={cur === "__eco_sis__" ? "active" : ""} onClick={() => setCur("__eco_sis__")}>👥 Sistemas</a>
+        <a className={cur === "__eco_dom__" ? "active" : ""} onClick={() => setCur("__eco_dom__")}>🗂 Dominios y bases</a>
+        <a className={cur === "__eco_pro__" ? "active" : ""} onClick={() => setCur("__eco_pro__")}>⚙ Procesos</a>
         <a className={cur === "__modelo__" ? "active" : ""} onClick={() => setCur("__modelo__")}>🧩 Modelo conceptual</a>
-        {ECO_VIEWS.map(([k, l]) => (
-          <a key={k} className={cur === `__eco_${k}__` ? "active" : ""} onClick={() => setCur(`__eco_${k}__`)}>{ECO_ICON[k]} {l}</a>
-        ))}
+        <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🔗 Integraciones</a>
+        <a className={cur === "__eco_siip__" ? "active" : ""} onClick={() => setCur("__eco_siip__")}>🎯 Trazabilidad al SIIP</a>
+        <a className={cur === "__eco_cob__" ? "active" : ""} onClick={() => setCur("__eco_cob__")}>🕳 Cobertura y vacíos</a>
         <div className="grp">Reportería</div>
         <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos · 2.º entregable</a>
       </nav>
@@ -82,7 +84,7 @@ function Flujo() {
   return (
     <>
       <div className="toolbar">
-        <h2>Mapa de flujo de datos</h2>
+        <h2>Integraciones · mapa de flujo de datos</h2>
         <a className="btn" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">Abrir en pestaña nueva ↗</a>
       </div>
       <iframe src="/flujo_datos_onp.html" title="Mapa de flujo de datos ONP"
