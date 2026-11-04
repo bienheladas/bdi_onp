@@ -125,6 +125,7 @@ button.eco-chip:hover { background:var(--blue); color:#fff; border-color:var(--b
 .eco-card2 { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
 .eco-bar { height:7px; background:var(--grey); border-radius:4px; overflow:hidden; margin:8px 0; }
 .eco-bar span { display:block; height:100%; }
+.eco-h { font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--navy); margin:4px 0 10px; font-weight:650; }
 .eco-cob { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
 @media(max-width:1000px){ .eco-cob{ grid-template-columns:1fr; } }
 .eco-ul { margin:4px 0 0; padding-left:18px; font-size:13px; }

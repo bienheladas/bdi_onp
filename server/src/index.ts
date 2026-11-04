@@ -845,7 +845,24 @@ app.get("/api/ecosistema", async (_req, res) => {
           join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where e2.dominio_info=e.dominio_info) bases
       from entidad_conceptual e group by e.dominio_info order by nent desc, dominio`);
 
-    res.json({ kpis, sistemas, dominios, procesos, entidades, relaciones, siip });
+    // 7) Brechas / vacíos computados (categorías del explorador original)
+    const bases_sin_dominio = await raw(`
+      select b.nombre_bd nombre, b.en_modelo_conceptual emc
+      from base_de_datos b
+      where not exists (select 1 from aplicacion_basedatos ab join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion where ab.id_bd=b.id_bd)
+      order by b.en_modelo_conceptual desc, b.nombre_bd`);
+    const etl = (await raw(`
+      select (count(*) filter (where id_bd_origen is null and coalesce(origen_externo,'')=''))::int orig,
+             (count(*) filter (where id_bd_destino is null and coalesce(destino_externo,'')=''))::int dest
+      from integraciones where mecanismo='ETL DataStage'`))[0];
+    const bases_baja = await raw(`
+      select b.nombre_bd nombre, b.estado_bd estado,
+        (select count(*)::int from aplicacion_basedatos ab where ab.id_bd=b.id_bd) n_apps,
+        (select count(*)::int from integraciones i where i.id_bd_origen=b.id_bd or i.id_bd_destino=b.id_bd) n_integ
+      from base_de_datos b where upper(coalesce(b.estado_bd,'')) like '%BAJA%'
+      order by n_integ desc, n_apps desc`);
+
+    res.json({ kpis, sistemas, dominios, procesos, entidades, relaciones, siip, brechas: { bases_sin_dominio, etl, bases_baja } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

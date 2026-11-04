@@ -312,22 +312,66 @@ function EcoSplit<T>({ items, keyOf, sel, onSel, card, detail, embed }: {
 }
 
 function EcoCobertura({ d }: { d: EcoData }) {
+  const K = d.kpis;
   const entSin = d.entidades.filter((e) => e.nf === 0);
   const domSin = d.dominios.filter((x) => sp(x.bases).length === 0);
   const proSin = d.procesos.filter((x) => sp(x.apps).length === 0);
   const sisSin = d.sistemas.filter((s) => sp(s.bases).length === 0);
-  const blocks: [string, string[]][] = [
-    ["Entidades conceptuales sin fuente AS-IS en alcance", entSin.map((e) => `${e.nombre} (${e.dominio})`)],
-    ["Dominios funcionales sin BD en alcance", domSin.map((x) => x.nombre)],
-    ["Procesos sin aplicación en alcance", proSin.map((x) => `${x.proceso} · ${x.dominio}`)],
-    ["Sistemas en alcance sin BD en alcance", sisSin.map((s) => `${s.cod} ${s.nombre}`)],
+  const siipSin = d.siip.filter((s) => s.nf === 0);
+  const siipParc = d.siip.filter((s) => s.nf > 0 && s.nf < 3);
+  const niveles = [
+    { nivel: "Sistema / aplicación", n: K.apps, fuente: "ADI-03 · apps consumidoras", ok: true },
+    { nivel: "Base de datos", n: K.bd, fuente: "ADI-03", ok: true },
+    { nivel: "Dominio funcional", n: K.dominios, fuente: "ADI-04", ok: true },
+    { nivel: "Proceso de negocio", n: K.procesos, fuente: "ADI-09", ok: true },
+    { nivel: "Entidad conceptual", n: K.entidades, fuente: "ADI-09 · AMC", ok: true },
+    { nivel: "Integraciones", n: K.integraciones, fuente: "ADI-05", ok: true },
+    { nivel: "Relación entre entidades", n: K.relaciones, fuente: "AMC · ADI-05", ok: false },
   ];
-  return <div className="eco-cob">{blocks.map(([t, arr], i) => (
-    <div className="eco-panel" key={i}>
-      <h3>{t} <span className="eco-muted">({arr.length})</span></h3>
-      {arr.length ? <ul className="eco-ul">{arr.map((x, j) => <li key={j}>{x}</li>)}</ul> : <span className="eco-muted">Sin vacíos.</span>}
+  const B = d.brechas;
+  const basesBajaUso = B.bases_baja.filter((x) => x.n_apps > 0 || x.n_integ > 0);
+  const blocks = [
+    { t: "Entidades conceptuales sin fuente AS-IS", arr: entSin.map((e) => `${e.nombre} (${e.dominio})`) },
+    { t: "Dominios SIIP sin cobertura AS-IS", arr: siipSin.map((s) => s.dominio) },
+    { t: "Dominios SIIP con cobertura parcial (<3 fuentes)", arr: siipParc.map((s) => `${s.dominio} · ${s.nf}`) },
+    { t: "Bases sin dominio funcional asociado", arr: B.bases_sin_dominio.map((b) => b.nombre + (b.emc ? " · en alcance" : "")) },
+    { t: "Bases en baja/candidata que aún se usan", arr: basesBajaUso.map((x) => `${x.nombre} · ${x.estado} · ${x.n_apps} apps · ${x.n_integ} integr.`) },
+    { t: "Dominios funcionales sin BD en alcance", arr: domSin.map((x) => x.nombre) },
+    { t: "Procesos sin aplicación en alcance", arr: proSin.map((x) => `${x.proceso} · ${x.dominio}`) },
+    { t: "Sistemas en alcance sin BD en alcance", arr: sisSin.map((s) => `${s.cod} ${s.nombre}`) },
+  ];
+  return (
+    <div>
+      <h3 className="eco-h">Nivel de detalle existente (en alcance)</h3>
+      <div className="tablewrap" style={{ maxHeight: "none", marginBottom: 20 }}>
+        <table>
+          <thead><tr><th>Nivel</th><th>Disponibilidad</th><th>Fuente</th></tr></thead>
+          <tbody>
+            {niveles.map((x, i) => (
+              <tr key={i}>
+                <td><b>{x.nivel}</b></td>
+                <td><span className={"tag " + (x.ok ? "tg-green" : "tg-amber")}>{x.ok ? "Completo" : "Parcial"} · {x.n}</span></td>
+                <td>{x.fuente}</td>
+              </tr>))}
+            <tr><td><b>Nombre de tabla → entidad</b></td><td><span className="tag tg-red">No disponible</span></td><td>Extracción de estructura física (F-24)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 className="eco-h">Vacíos detectados</h3>
+      <div className="eco-panel" style={{ marginBottom: 14 }}>
+        <h3>Extremos de ETL sin resolver <span className="eco-muted">(endpoint «parametrizado — pendiente», requiere OTI)</span></h3>
+        <span className={"tag " + (B.etl.orig ? "tg-amber" : "tg-green")}>{B.etl.orig} orígenes pendientes</span>{" "}
+        <span className={"tag " + (B.etl.dest ? "tg-amber" : "tg-green")}>{B.etl.dest} destinos pendientes</span>
+        <span className="eco-muted"> · de {K.integraciones} integraciones</span>
+      </div>
+      <div className="eco-cob">{blocks.map((b, i) => (
+        <div className="eco-panel" key={i}>
+          <h3>{b.t} <span className={"tag " + (b.arr.length ? "tg-amber" : "tg-green")}>{b.arr.length}</span></h3>
+          {b.arr.length ? <ul className="eco-ul">{b.arr.map((x, j) => <li key={j}>{x}</li>)}</ul> : <span className="eco-muted">Sin vacíos.</span>}
+        </div>))}
+      </div>
     </div>
-  ))}</div>;
+  );
 }
 
 type ArtMeta = { id: string; titulo: string; generador: string; archivo?: string; fuente?: string };

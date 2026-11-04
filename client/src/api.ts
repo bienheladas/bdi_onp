@@ -16,6 +16,11 @@ export type EcoData = {
   entidades: { nombre: string; dominio: string; nucleo: boolean; descripcion: string | null; nf: number; bases: string | null }[];
   relaciones: { origen: string; destino: string; cardinalidad: string | null; descripcion: string | null }[];
   siip: { dominio: string; nent: number; ents: string | null; nf: number; bases: string | null }[];
+  brechas: {
+    bases_sin_dominio: { nombre: string; emc: boolean }[];
+    etl: { orig: number; dest: number };
+    bases_baja: { nombre: string; estado: string | null; n_apps: number; n_integ: number }[];
+  };
 };
 
 let KEY = localStorage.getItem("adminkey") || "";
