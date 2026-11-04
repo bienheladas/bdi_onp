@@ -7,6 +7,17 @@ export type Rel = { key: string; label: string; mode: "nm" | "ro" | "child"; tar
 export type Model = { name: string; label: string; pks: string[]; labelFields: string[]; fields: Field[]; relations: Rel[] };
 export type Opt = { value: any; label: string };
 
+// Explorador "Ecosistema de Datos ONP" (live). Los campos de lista llegan como texto con '§'.
+export type EcoData = {
+  kpis: { bd: number; apps: number; dominios: number; procesos: number; entidades: number; relaciones: number; integraciones: number };
+  sistemas: { cod: string; nombre: string; estado: string | null; criticidad: string | null; bases: string | null; doms: string | null; procs: string | null; ents: string | null }[];
+  dominios: { nombre: string; tipo: string | null; nproc: number; procs: string | null; apps: string | null; bases: string | null }[];
+  procesos: { proceso: string; dominio: string; tipo: string | null; apps: string | null; bases: string | null; ents: string | null }[];
+  entidades: { nombre: string; dominio: string; nucleo: boolean; descripcion: string | null; nf: number; bases: string | null }[];
+  relaciones: { origen: string; destino: string; cardinalidad: string | null; descripcion: string | null }[];
+  siip: { dominio: string; nent: number; ents: string | null; nf: number }[];
+};
+
 let KEY = localStorage.getItem("adminkey") || "";
 export const setKey = (k: string) => { KEY = k; localStorage.setItem("adminkey", k); };
 
@@ -42,6 +53,7 @@ export const api = {
   options: (m: string): Promise<Opt[]> => req(`/api/${m}/options`),
   oficinas: (): Promise<Opt[]> => req("/api/oficinas"),
   artefacto: (id: string): Promise<{ id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> }> => req(`/api/artefacto/${encodeURIComponent(id)}`),
+  ecosistema: (): Promise<EcoData> => req("/api/ecosistema"),
   columnasDesc: (): Promise<Record<string, Record<string, string>>> => req("/api/columnas_desc"),
   // Descarga EN VIVO del Excel (genera el workbook al vuelo desde PG). Envía la clave por header.
   xlsx: (url: string, filename: string) => downloadXlsx(url, filename),

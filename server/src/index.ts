@@ -774,6 +774,77 @@ app.get("/api/modelo_conceptual", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------- Ecosistema de Datos ONP (explorador en vivo) ----------------
+// Versión LCP del explorador: estructuras tomadas correctamente del modelo (en alcance),
+// reutilizando la misma lógica de ADI-03/04/05/09 y el modelo conceptual. Los arreglos se
+// devuelven como texto separado por '§' y el cliente los parte.
+const SEP = "§";
+app.get("/api/ecosistema", async (_req, res) => {
+  try {
+    const raw = (s: string) => prisma.$queryRawUnsafe<any[]>(s);
+    const num = (s: string) => raw(s).then((r) => Number(r[0]?.n ?? 0));
+
+    const kpis = {
+      bd: await num("select count(*) n from base_de_datos where en_modelo_conceptual"),
+      apps: await num("select count(*) n from aplicacion where en_modelo_conceptual"),
+      dominios: await num("select count(*) n from dominio_funcional"),
+      procesos: await num("select count(*) n from proceso_negocio"),
+      entidades: await num("select count(*) n from entidad_conceptual"),
+      relaciones: await num("select count(*) n from relacion_conceptual"),
+      integraciones: await num("select count(*) n from integraciones"),
+    };
+
+    // 1) Sistemas (apps en alcance) con sus bases/dominios/procesos/entidades (en alcance)
+    const sistemas = await raw(`
+      select a.id_app cod, a.nombre_app nombre, a.estado_app estado, a.criticidad,
+        (select string_agg(distinct b.nombre_bd,'${SEP}') from aplicacion_basedatos ab join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ab.id_aplicacion=a.id) bases,
+        (select string_agg(distinct df.desc_dominio,'${SEP}') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio where ap.id_aplicacion=a.id) doms,
+        (select string_agg(distinct pn.desc_proceso,'${SEP}') from aplicacion_proceso ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso where ap.id_aplicacion=a.id) procs,
+        (select string_agg(distinct fe.entidad,'${SEP}') from aplicacion_basedatos ab join fuente_entidad fe on fe.id_bd=ab.id_bd join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ab.id_aplicacion=a.id) ents
+      from aplicacion a where a.en_modelo_conceptual order by a.id_app`);
+
+    // 2) Dominios funcionales con procesos/bases/apps en alcance
+    const dominios = await raw(`
+      select df.desc_dominio nombre, tp.desc_tipo_proceso tipo,
+        (select count(distinct pn.id_proceso)::int from proceso_negocio pn where pn.id_dominio=df.id_dominio) nproc,
+        (select string_agg(distinct pn.desc_proceso,'${SEP}') from proceso_negocio pn where pn.id_dominio=df.id_dominio) procs,
+        (select string_agg(distinct a.id_app,'${SEP}') from proceso_negocio pn join aplicacion_proceso ap on ap.id_proceso=pn.id_proceso join aplicacion a on a.id=ap.id_aplicacion and a.en_modelo_conceptual where pn.id_dominio=df.id_dominio) apps,
+        (select string_agg(distinct b.nombre_bd,'${SEP}') from proceso_negocio pn join aplicacion_proceso ap on ap.id_proceso=pn.id_proceso join aplicacion a on a.id=ap.id_aplicacion and a.en_modelo_conceptual join aplicacion_basedatos ab on ab.id_aplicacion=a.id join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where pn.id_dominio=df.id_dominio) bases
+      from dominio_funcional df left join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+      order by tp.desc_tipo_proceso, df.desc_dominio`);
+
+    // 3) Procesos de negocio (con apps/bases en alcance)
+    const procesos = await raw(`
+      select pn.desc_proceso proceso, df.desc_dominio dominio, tp.desc_tipo_proceso tipo,
+        (select string_agg(distinct a.id_app,'${SEP}') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion and a.en_modelo_conceptual where ap.id_proceso=pn.id_proceso) apps,
+        (select string_agg(distinct b.nombre_bd,'${SEP}') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion and a.en_modelo_conceptual join aplicacion_basedatos ab on ab.id_aplicacion=a.id join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso) bases,
+        (select string_agg(distinct fe.entidad,'${SEP}') from aplicacion_proceso ap join aplicacion a on a.id=ap.id_aplicacion and a.en_modelo_conceptual join aplicacion_basedatos ab on ab.id_aplicacion=a.id join fuente_entidad fe on fe.id_bd=ab.id_bd join base_de_datos b on b.id_bd=ab.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso) ents
+      from proceso_negocio pn join dominio_funcional df on df.id_dominio=pn.id_dominio
+      left join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+      order by tp.desc_tipo_proceso, df.desc_dominio, pn.desc_proceso`);
+
+    // 4) Entidades conceptuales + fuentes AS-IS en alcance
+    const entidades = await raw(`
+      select e.nombre, e.dominio_info dominio, e.es_nucleo nucleo, e.descripcion,
+        (select count(distinct fe.id_bd)::int from fuente_entidad fe join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where fe.entidad=e.nombre) nf,
+        (select string_agg(distinct b.nombre_bd,'${SEP}') from fuente_entidad fe join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where fe.entidad=e.nombre) bases
+      from entidad_conceptual e order by e.id_entidad`);
+    const relaciones = await raw(`
+      select eo.nombre origen, ed.nombre destino, r.cardinalidad, r.descripcion
+      from relacion_conceptual r join entidad_conceptual eo on eo.id_entidad=r.id_origen
+      join entidad_conceptual ed on ed.id_entidad=r.id_destino order by r.id_relacion`);
+
+    // 6) SIIP: dominios de datos (dominio_info) con sus entidades y fuentes AS-IS en alcance
+    const siip = await raw(`
+      select e.dominio_info dominio, count(*)::int nent, string_agg(distinct e.nombre,'${SEP}') ents,
+        (select count(distinct fe.id_bd)::int from fuente_entidad fe join entidad_conceptual e2 on e2.nombre=fe.entidad
+          join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual where e2.dominio_info=e.dominio_info) nf
+      from entidad_conceptual e group by e.dominio_info order by nent desc, dominio`);
+
+    res.json({ kpis, sistemas, dominios, procesos, entidades, relaciones, siip });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ---------------- Estructura física / DDL (esquema -> tabla -> columna) ----------------
 // Se registran ANTES del CRUD genérico para que /api/estructura_bd no lo intercepte /api/:model/:id.
 

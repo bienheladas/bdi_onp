@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, setKey, Model, Field, Opt, Rel } from "./api";
+import { api, setKey, Model, Field, Opt, Rel, type EcoData } from "./api";
 
 const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio", "oficina"];
 const ENT = ["servidor", "base_de_datos", "aplicacion"];
@@ -56,16 +56,21 @@ export default function App() {
         {MC.map((n) => models.find((m) => m.name === n) && (
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
         ))}
-        <div className="grp">Reportería</div>
+        <div className="grp">Ecosistema de Datos ONP</div>
         <a className={cur === "__flujo__" ? "active" : ""} onClick={() => setCur("__flujo__")}>🗺 Mapa de flujo de datos</a>
         <a className={cur === "__modelo__" ? "active" : ""} onClick={() => setCur("__modelo__")}>🧩 Modelo conceptual</a>
-        <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos</a>
+        {ECO_VIEWS.map(([k, l]) => (
+          <a key={k} className={cur === `__eco_${k}__` ? "active" : ""} onClick={() => setCur(`__eco_${k}__`)}>{ECO_ICON[k]} {l}</a>
+        ))}
+        <div className="grp">Reportería</div>
+        <a className={cur === "__artefactos__" ? "active" : ""} onClick={() => setCur("__artefactos__")}>📦 Artefactos · 2.º entregable</a>
       </nav>
       <main className="main">
         {cur === "__pend__"
           ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} go={go} />
           : cur === "__flujo__" ? <Flujo />
           : cur === "__modelo__" ? <ModeloConceptual />
+          : cur.startsWith("__eco_") ? <Ecosistema view={cur.slice(6, -2)} />
           : cur === "__artefactos__" ? <Artefactos />
           : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} pending={pending} clearPending={() => setPending(null)} /> : <p>Cargando…</p>}
       </main>
@@ -97,6 +102,136 @@ function ModeloConceptual() {
         style={{ width: "100%", height: "calc(100vh - 150px)", border: "1px solid #334", borderRadius: 8, background: "#1b1f27" }} />
     </>
   );
+}
+
+// ============ Ecosistema de Datos ONP (data en vivo) ============
+// 5 vistas que aportan algo distinto a los 2 diagramas que ya existen
+// (Entidades/relaciones = Modelo conceptual; Integraciones = Mapa de flujo).
+// Cada vista es un ítem del menú lateral; se renderiza <Ecosistema view=...>.
+const ECO_VIEWS: [string, string][] = [
+  ["sis", "Sistemas"], ["dom", "Dominios y bases"], ["pro", "Procesos"],
+  ["siip", "Trazabilidad al SIIP"], ["cob", "Cobertura y vacíos"],
+];
+const ECO_ICON: Record<string, string> = { sis: "👥", dom: "🗂", pro: "⚙", siip: "🎯", cob: "🕳" };
+const sp = (s: string | null | undefined) => (s ? s.split("§").filter(Boolean) : []);
+let ecoCache: EcoData | null = null;   // se consulta una vez; se comparte entre las 5 vistas
+function Chips({ items, empty = "—" }: { items: string[]; empty?: string }) {
+  if (!items.length) return <span className="eco-muted">{empty}</span>;
+  return <div className="eco-chips">{items.map((x, i) => <span className="eco-chip" key={i}>{x}</span>)}</div>;
+}
+function EcoRow({ k, children }: { k: string; children: ReactNode }) {
+  return <div className="eco-grow"><dt>{k}</dt><dd>{children}</dd></div>;
+}
+
+function Ecosistema({ view }: { view: string }) {
+  const [d, setD] = useState<EcoData | null>(ecoCache);
+  const [err, setErr] = useState("");
+  const [sel, setSel] = useState<any>(null);
+  useEffect(() => { if (!ecoCache) api.ecosistema().then((x) => { ecoCache = x; setD(x); }).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { setSel(null); }, [view]);
+
+  if (err) return <div className="err" style={{ margin: 20 }}>{err}</div>;
+  if (!d) return <p style={{ padding: 24 }}>Cargando ecosistema…</p>;
+
+  const K = d.kpis;
+  const kpis: [number, string][] = [
+    [K.bd, "BD en alcance"], [K.apps, "Aplicaciones"], [K.dominios, "Dominios"],
+    [K.procesos, "Procesos"], [K.entidades, "Entidades"], [K.relaciones, "Relaciones"], [K.integraciones, "Integraciones"],
+  ];
+  const title = ECO_VIEWS.find(([k]) => k === view)?.[1] ?? "Ecosistema";
+
+  return (
+    <div className="eco">
+      <div className="toolbar"><h2>{ECO_ICON[view]} {title}</h2><span className="eco-muted">Ecosistema de Datos ONP · data en vivo</span></div>
+      <div className="kpis">{kpis.map(([n, l], i) => <div className="kpi" key={i}><div className="n">{n}</div><div className="l">{l}</div></div>)}</div>
+      <div className="eco-content">
+          {view === "sis" && <EcoSplit
+            items={d.sistemas} keyOf={(s) => s.cod} sel={sel} onSel={setSel}
+            card={(s) => <><div className="eco-t">{s.cod} · {s.nombre}</div><div className="eco-m">{sp(s.bases).length} BD · {sp(s.doms).length} dominios · {sp(s.procs).length} procesos</div></>}
+            detail={(s) => <>
+              <h3>{s.cod} · {s.nombre}</h3>
+              <dl className="eco-dl">
+                <EcoRow k="Estado">{s.estado || "—"}{s.criticidad ? ` · criticidad ${s.criticidad}` : ""}</EcoRow>
+                <EcoRow k="Bases (en alcance)"><Chips items={sp(s.bases)} empty="Sin BD en alcance" /></EcoRow>
+                <EcoRow k="Dominios"><Chips items={sp(s.doms)} /></EcoRow>
+                <EcoRow k="Procesos"><Chips items={sp(s.procs)} /></EcoRow>
+                <EcoRow k="Entidades"><Chips items={sp(s.ents)} /></EcoRow>
+              </dl></>} />}
+
+          {view === "dom" && <EcoSplit
+            items={d.dominios} keyOf={(x) => x.nombre} sel={sel} onSel={setSel}
+            card={(x) => <><div className="eco-t">{x.nombre}</div><div className="eco-m">{x.tipo || "—"} · {x.nproc} procesos · {sp(x.bases).length} BD</div></>}
+            detail={(x) => <>
+              <h3>{x.nombre}</h3>
+              <dl className="eco-dl">
+                <EcoRow k="Tipo de proceso">{x.tipo || "—"}</EcoRow>
+                <EcoRow k="Procesos"><Chips items={sp(x.procs)} /></EcoRow>
+                <EcoRow k="Aplicaciones"><Chips items={sp(x.apps)} empty="Sin apps en alcance" /></EcoRow>
+                <EcoRow k="Bases (en alcance)"><Chips items={sp(x.bases)} empty="Sin BD en alcance" /></EcoRow>
+              </dl></>} />}
+
+          {view === "pro" && <EcoSplit
+            items={d.procesos} keyOf={(x) => x.proceso} sel={sel} onSel={setSel}
+            card={(x) => <><div className="eco-t">{x.proceso}</div><div className="eco-m">{x.tipo || "—"} · {x.dominio} · {sp(x.apps).length} apps · {sp(x.bases).length} BD</div></>}
+            detail={(x) => <>
+              <h3>{x.proceso}</h3>
+              <dl className="eco-dl">
+                <EcoRow k="Dominio">{x.dominio}</EcoRow>
+                <EcoRow k="Tipo">{x.tipo || "—"}</EcoRow>
+                <EcoRow k="Aplicaciones"><Chips items={sp(x.apps)} empty="Sin apps en alcance" /></EcoRow>
+                <EcoRow k="Bases (en alcance)"><Chips items={sp(x.bases)} empty="Sin BD en alcance" /></EcoRow>
+                <EcoRow k="Entidades"><Chips items={sp(x.ents)} /></EcoRow>
+              </dl></>} />}
+
+          {view === "siip" && <div className="eco-cards">
+            {d.siip.map((s, i) => (
+              <div className="eco-card2" key={i}>
+                <div className="eco-t">{s.dominio}</div>
+                <div className="eco-m">{s.nent} entidades · cubiertas por {s.nf} fuentes AS-IS</div>
+                <div className="eco-bar"><span style={{ width: `${Math.min(100, s.nf * 12)}%`, background: s.nf === 0 ? "#b3261e" : s.nf < 3 ? "#b56a00" : "#0f7a4d" }} /></div>
+                <Chips items={sp(s.ents)} />
+              </div>
+            ))}
+          </div>}
+
+          {view === "cob" && <EcoCobertura d={d} />}
+      </div>
+    </div>
+  );
+}
+
+// Lista (izquierda) + panel de detalle (derecha). 'embed' evita envolver dos veces en .eco-split.
+function EcoSplit<T>({ items, keyOf, sel, onSel, card, detail, embed }: {
+  items: T[]; keyOf: (x: T) => string; sel: any; onSel: (x: T) => void;
+  card: (x: T) => ReactNode; detail: (x: T) => ReactNode; embed?: boolean;
+}) {
+  const body = (<>
+    <div className="eco-list">{items.map((x) => {
+      const k = keyOf(x);
+      return <button key={k} className={"eco-card" + (sel && keyOf(sel) === k ? " sel" : "")} onClick={() => onSel(x)}>{card(x)}</button>;
+    })}</div>
+    <div className="eco-panel">{sel ? detail(sel) : <span className="eco-muted">Selecciona un elemento de la lista.</span>}</div>
+  </>);
+  return embed ? body : <div className="eco-split">{body}</div>;
+}
+
+function EcoCobertura({ d }: { d: EcoData }) {
+  const entSin = d.entidades.filter((e) => e.nf === 0);
+  const domSin = d.dominios.filter((x) => sp(x.bases).length === 0);
+  const proSin = d.procesos.filter((x) => sp(x.apps).length === 0);
+  const sisSin = d.sistemas.filter((s) => sp(s.bases).length === 0);
+  const blocks: [string, string[]][] = [
+    ["Entidades conceptuales sin fuente AS-IS en alcance", entSin.map((e) => `${e.nombre} (${e.dominio})`)],
+    ["Dominios funcionales sin BD en alcance", domSin.map((x) => x.nombre)],
+    ["Procesos sin aplicación en alcance", proSin.map((x) => `${x.proceso} · ${x.dominio}`)],
+    ["Sistemas en alcance sin BD en alcance", sisSin.map((s) => `${s.cod} ${s.nombre}`)],
+  ];
+  return <div className="eco-cob">{blocks.map(([t, arr], i) => (
+    <div className="eco-panel" key={i}>
+      <h3>{t} <span className="eco-muted">({arr.length})</span></h3>
+      {arr.length ? <ul className="eco-ul">{arr.map((x, j) => <li key={j}>{x}</li>)}</ul> : <span className="eco-muted">Sin vacíos.</span>}
+    </div>
+  ))}</div>;
 }
 
 type ArtMeta = { id: string; titulo: string; generador: string; archivo?: string; fuente?: string };
