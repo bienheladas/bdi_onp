@@ -180,11 +180,31 @@ model integracion_datastage {
   usa_archivo_plano      Boolean?      @default(false)
   sql_extraccion         String?
   job_padre              String?
+  malla_raiz             String?
   fecha_creacion         DateTime      @default(now()) @db.Timestamptz(6)
   ip_creacion            String?       @db.VarChar(45)
   fecha_modificacion     DateTime?     @db.Timestamptz(6)
   ip_modificacion        String?       @db.VarChar(45)
   integraciones          integraciones @relation(fields: [id_integracion], references: [id_integracion], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model relevamiento_malla {
+  malla             String  @id @db.VarChar(120)
+  proyecto          String? @db.VarChar(60)
+  contenedor        String? @db.VarChar(200)
+  tipo_ejecucion    String? @db.VarChar(40)
+  periodicidad      String? @db.VarChar(60)
+  hora              String? @db.VarChar(40)
+  tiempo_ref_min    String? @db.VarChar(40)
+  responsable_oti   String? @db.VarChar(120)
+  predecesor        String?
+  base_datos        String?
+  bd_origen         String?
+  bd_destino        String?
+  esquema           String?
+  integracion_otros String? @db.VarChar(160)
+  observacion       String?
+  fuente            String? @db.VarChar(12)
 }
 
 model fuentes_institucionales {

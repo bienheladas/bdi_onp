@@ -199,7 +199,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
       "Tipo de relación / dependencia", "Mecanismo de integración", "Información intercambiada",
       "Proceso / dominio / área", "Frecuencia", "Responsable", "Limitaciones / restricciones",
-      "Riesgos generales", "Detalle (job / DB link)", "Secuencia(s) padre (agrupador)"],
+      "Riesgos generales", "Detalle (job / DB link)", "Secuencia(s) padre (agrupador)", "Malla (OTI, agrupador)"],
     sql: `
       select
         (row_number() over (order by i.mecanismo, i.id_integracion))::int as "N°",
@@ -227,9 +227,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso
                   join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=coalesce(i.id_bd_origen,i.id_bd_destino)),'') as "Proceso / dominio / área",
         case when i.mecanismo='DB Link' then 'En línea'
-             when i.mecanismo='ETL DataStage' then 'Incremental diario *' else '' end as "Frecuencia",
+             when i.mecanismo='ETL DataStage' then
+               coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), 'Incremental diario *')
+             else '' end as "Frecuencia",
         case when i.mecanismo='DB Link' then 'OTI (DBA)'
-             when i.mecanismo='ETL DataStage' then coalesce(nullif(trim(d.proveedor),''), nullif(trim(d.responsable),''), 'OTI (DataStage)') else '' end as "Responsable",
+             when i.mecanismo='ETL DataStage' then coalesce(nullif(trim(rm.responsable_oti),''), nullif(trim(d.proveedor),''), nullif(trim(d.responsable),''), 'OTI (DataStage)') else '' end as "Responsable",
         case when i.mecanismo='DB Link' then
                (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio like 'SELECT%')
@@ -245,7 +247,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              when i.mecanismo='ETL DataStage' then
                'Job: '||coalesce(i.nombre_enlace,'')||coalesce('; Tabla(s) destino: '||nullif(trim(d.tabla_destino),''),'')||coalesce('; Modo: '||nullif(trim(d.modo_carga),''),'')||coalesce('; Objetivo: '||nullif(trim(d.objetivo),''),'')
              else '' end as "Detalle (job / DB link)",
-        coalesce(d.job_padre,'') as "Secuencia(s) padre (agrupador)"
+        coalesce(d.job_padre,'') as "Secuencia(s) padre (agrupador)",
+        coalesce(d.malla_raiz,'') as "Malla (OTI, agrupador)"
       from integraciones i
       left join base_de_datos bo on bo.id_bd=i.id_bd_origen
       left join motor_bd mo on mo.id_motor_bd=bo.id_motor_bd
@@ -253,6 +256,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join motor_bd md on md.id_motor_bd=bd.id_motor_bd
       left join integracion_datastage d on d.id_integracion=i.id_integracion
       left join integracion_dblink dl on dl.id_integracion=i.id_integracion
+      left join relevamiento_malla rm on upper(rm.malla)=upper(trim(split_part(d.malla_raiz,';',1)))
       order by i.mecanismo, i.id_integracion
     `,
   },
