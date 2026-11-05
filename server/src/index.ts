@@ -642,8 +642,10 @@ app.get("/api/flujo", async (_req, res) => {
     const nid = (ext: string | null, idbd: number | null) => (ext ? "ext:" + ext : "bd:" + String(idbd));
 
     const raw = await prisma.$queryRawUnsafe<any[]>(
-      `select i.origen_externo, i.id_bd_origen, i.id_bd_destino, i.destino_externo, i.mecanismo, count(*)::int n
-       from integraciones i group by 1,2,3,4,5`);
+      `select i.origen_externo, i.id_bd_origen, i.id_bd_destino, i.destino_externo, i.mecanismo,
+              fe.codigo fe_cod, fe.nombre fe_nom, count(*)::int n
+       from integraciones i left join fuentes_externas fe on fe.id_fuente_ext=i.id_fuente_externa_origen
+       group by 1,2,3,4,5,6,7`);
     const bdRows = await prisma.$queryRawUnsafe<any[]>(
       `select b.id_bd, b.nombre_bd, s.nombre_servidor, m.desc_motor, a.desc_ambiente,
               b.version_bd, b.edicion, b.tamano_gb, b.nro_tablas, b.nro_esquemas, b.estado_bd
@@ -677,23 +679,55 @@ app.get("/api/flujo", async (_req, res) => {
     for (const r of domRows) { const a = domBd.get(r.id_bd) || []; a.push(r.desc_dominio); domBd.set(r.id_bd, a); }
     const allDomains = [...new Set(domRows.map((r) => r.desc_dominio))].sort((a, b) => a.localeCompare(b));
 
+    // nombre_bd -> id_bd (para resolver textos externos que en realidad nombran BD conocidas)
+    const bdName2Id = new Map<string, number>();
+    for (const r of bdRows) { const u = String(r.nombre_bd).toUpperCase(); if (!bdName2Id.has(u)) bdName2Id.set(u, r.id_bd); }
+    const ENGINE = new Set(["ORACLE", "SQL", "SQL SERVER", "ORACLE DATABASE", "DB2", "MYSQL"]);
+    const ALIAS: Record<string, string> = { "BRPRDBDI": "BDPRDBDI", "BDPRBDI": "BDPRDBDI", "BRPRBDI": "BDPRDBDI" };
+    const fxLabel: Record<string, string> = {};
+    const resolveEp = (text: string | null, idbd: number | null): string[] => {
+      if (idbd) return ["bd:" + String(idbd)];
+      if (!text || !text.trim()) return [];
+      const t = text.trim();
+      if (/^archivo plano/i.test(t)) return ["ext:Archivo plano"];   // variantes (.txt, etc.) -> gris
+      if (/dataset/i.test(t)) return ["ext:Dataset interno"];
+      const base = t.replace(/\s*\*$/, "").trim();
+      const out: string[] = [];
+      for (let tok of base.split(/[,/]/)) {
+        tok = tok.trim(); if (!tok) continue;
+        let tu = tok.toUpperCase(); tu = ALIAS[tu] || tu;
+        if (ENGINE.has(tu)) continue;
+        if (bdName2Id.has(tu)) out.push("bd:" + String(bdName2Id.get(tu)));
+      }
+      return out.length ? out : ["ext:" + base];
+    };
+
     const agg = new Map<string, { total: number; mec: Record<string, number> }>();
     const deg: Record<string, number> = {};
     for (const r of raw) {
       const oe = r.origen_externo, de = r.destino_externo, ido = r.id_bd_origen, idd = r.id_bd_destino, mec = r.mecanismo, n = r.n;
       if (isDev(oe) || isDev(de)) continue;
-      const src = (oe || ido) ? nid(oe, ido) : null;
-      const dst = idd ? nid(null, idd) : (de ? nid(de, null) : null);
-      if (!src || !dst || src === dst) continue;
-      const k = src + "" + dst;
-      const e = agg.get(k) || { total: 0, mec: {} };
-      e.total += n; e.mec[mec] = (e.mec[mec] || 0) + n; agg.set(k, e);
-      deg[src] = (deg[src] || 0) + n; deg[dst] = (deg[dst] || 0) + n;
+      let srcList: string[];
+      if (r.fe_cod) { fxLabel[r.fe_cod] = r.fe_nom || r.fe_cod; srcList = ["fx:" + r.fe_cod]; }
+      else srcList = resolveEp(oe, ido);
+      const dstList = resolveEp(de, idd);
+      for (const src of srcList) for (const dst of dstList) {
+        if (!src || !dst || src === dst) continue;
+        const k = src + SEP + dst;
+        const e = agg.get(k) || { total: 0, mec: {} };
+        e.total += n; e.mec[mec] = (e.mec[mec] || 0) + n; agg.set(k, e);
+        deg[src] = (deg[src] || 0) + n; deg[dst] = (deg[dst] || 0) + n;
+      }
     }
 
     const nodes = new Map<string, any>();
     const addNode = (nodeId: string) => {
       if (nodes.has(nodeId)) return;
+      if (nodeId.startsWith("fx:")) {
+        const code = nodeId.slice(3); const lab = fxLabel[code] || code;
+        nodes.set(nodeId, { id: nodeId, label: lab, color: "#B83280", group: "fuente_externa", domains: [], tip: `<b>${lab}</b><br>Fuente de datos externa (SUNAT) · registrada en fuentes_externas` });
+        return;
+      }
       if (nodeId.startsWith("ext:")) {
         const label = nodeId.slice(4);
         if (SINK.has(label)) nodes.set(nodeId, { id: nodeId, label, color: "#9E9E9E", group: "sink", domains: [], tip: `<b>${label}</b><br>Destino no-BD (salida DataStage)` });
