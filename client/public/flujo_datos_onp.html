@@ -41,8 +41,8 @@
     border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">📌 Fijar vista</button>
   <button id="unpin" style="background:#2d3748;color:#cbd5e0;border:1px solid #4a5568;
     border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">Restablecer</button>
-  <button id="dlpng" style="background:#2d3748;color:#e6e6e6;border:1px solid #4a5568;
-    border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">⬇ PNG</button>
+  <button id="dlhtml" style="background:#2d3748;color:#e6e6e6;border:1px solid #4a5568;
+    border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">⬇ HTML</button>
   <button id="dptoggle">🧩 Dominios</button>
   <span style="color:#667;font-size:11px">NODOS:</span>
   <span class="leg"><span class="sw" style="background:#C74634"></span>Oracle</span>
@@ -124,21 +124,23 @@ document.getElementById('pin').onclick=()=>{
   b.textContent='✓ Vista fijada';setTimeout(()=>b.textContent=o,1500);
 };
 document.getElementById('unpin').onclick=()=>{localStorage.removeItem(VIEW_KEY);location.reload();};
-// descarga del diagrama como PNG (canvas de vis.js, compuesto sobre el fondo para no quedar transparente)
-document.getElementById('dlpng').onclick=()=>{
+// descarga del diagrama como HTML AUTOCONTENIDO: toma la plantilla y le inyecta los datos
+// actuales (window.__FLUJO__) para que al abrirlo funcione offline e interactivo con data fija.
+document.getElementById('dlhtml').onclick=async()=>{
+  const btn=document.getElementById('dlhtml'); const orig=btn.textContent;
   try{
-    net.redraw();
-    const c=net.canvas.frame.canvas;
-    const tmp=document.createElement('canvas'); tmp.width=c.width; tmp.height=c.height;
-    const ctx=tmp.getContext('2d');
-    ctx.fillStyle=getComputedStyle(document.getElementById('net')).backgroundColor||'#1b1f27';
-    ctx.fillRect(0,0,tmp.width,tmp.height);
-    ctx.drawImage(c,0,0);
+    btn.textContent='…';
+    const resp=await fetch(location.pathname,{cache:'no-store'});
+    let html=await resp.text();
+    const snap='<script>window.__FLUJO__='+JSON.stringify(DATA)+';<\/script>\n';
+    html=html.replace('<body>','<body>\n'+snap);
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
     const a=document.createElement('a');
-    a.href=tmp.toDataURL('image/png');
-    a.download='Diagrama_Integraciones_ONP_'+new Date().toISOString().slice(0,10)+'.png';
-    a.click();
-  }catch(e){alert('No se pudo exportar el PNG: '+e.message);}
+    a.href=URL.createObjectURL(blob);
+    a.download='Diagrama_Integraciones_ONP_'+new Date().toISOString().slice(0,10)+'.html';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(e){alert('No se pudo exportar el HTML: '+e.message);}
+  finally{btn.textContent=orig;}
 };
 // tooltip propio
 const tip=document.getElementById('tip');
