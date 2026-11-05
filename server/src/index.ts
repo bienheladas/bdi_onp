@@ -683,7 +683,6 @@ app.get("/api/flujo", async (_req, res) => {
     const bdName2Id = new Map<string, number>();
     for (const r of bdRows) { const u = String(r.nombre_bd).toUpperCase(); if (!bdName2Id.has(u)) bdName2Id.set(u, r.id_bd); }
     const ENGINE = new Set(["ORACLE", "SQL", "SQL SERVER", "ORACLE DATABASE", "DB2", "MYSQL"]);
-    const ALIAS: Record<string, string> = { "BRPRDBDI": "BDPRDBDI", "BDPRBDI": "BDPRDBDI", "BRPRBDI": "BDPRDBDI" };
     const fxLabel: Record<string, string> = {};
     const resolveEp = (text: string | null, idbd: number | null): string[] => {
       if (idbd) return ["bd:" + String(idbd)];
@@ -695,7 +694,7 @@ app.get("/api/flujo", async (_req, res) => {
       const out: string[] = [];
       for (let tok of base.split(/[,/]/)) {
         tok = tok.trim(); if (!tok) continue;
-        let tu = tok.toUpperCase(); tu = ALIAS[tu] || tu;
+        const tu = tok.toUpperCase();
         if (ENGINE.has(tu)) continue;
         if (bdName2Id.has(tu)) out.push("bd:" + String(bdName2Id.get(tu)));
       }
