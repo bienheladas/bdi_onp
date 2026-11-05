@@ -41,6 +41,8 @@
     border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">📌 Fijar vista</button>
   <button id="unpin" style="background:#2d3748;color:#cbd5e0;border:1px solid #4a5568;
     border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">Restablecer</button>
+  <button id="dlpng" style="background:#2d3748;color:#e6e6e6;border:1px solid #4a5568;
+    border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px">⬇ PNG</button>
   <button id="dptoggle">🧩 Dominios</button>
   <span style="color:#667;font-size:11px">NODOS:</span>
   <span class="leg"><span class="sw" style="background:#C74634"></span>Oracle</span>
@@ -122,6 +124,22 @@ document.getElementById('pin').onclick=()=>{
   b.textContent='✓ Vista fijada';setTimeout(()=>b.textContent=o,1500);
 };
 document.getElementById('unpin').onclick=()=>{localStorage.removeItem(VIEW_KEY);location.reload();};
+// descarga del diagrama como PNG (canvas de vis.js, compuesto sobre el fondo para no quedar transparente)
+document.getElementById('dlpng').onclick=()=>{
+  try{
+    net.redraw();
+    const c=net.canvas.frame.canvas;
+    const tmp=document.createElement('canvas'); tmp.width=c.width; tmp.height=c.height;
+    const ctx=tmp.getContext('2d');
+    ctx.fillStyle=getComputedStyle(document.getElementById('net')).backgroundColor||'#1b1f27';
+    ctx.fillRect(0,0,tmp.width,tmp.height);
+    ctx.drawImage(c,0,0);
+    const a=document.createElement('a');
+    a.href=tmp.toDataURL('image/png');
+    a.download='Diagrama_Integraciones_ONP_'+new Date().toISOString().slice(0,10)+'.png';
+    a.click();
+  }catch(e){alert('No se pudo exportar el PNG: '+e.message);}
+};
 // tooltip propio
 const tip=document.getElementById('tip');
 function show(html,x,y){tip.innerHTML=html;tip.style.display='block';
