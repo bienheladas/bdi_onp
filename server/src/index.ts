@@ -628,6 +628,19 @@ app.get("/api/columnas_desc", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ---------------- Bitácora de subsanación (modificaciones al modelo) ----------------
+// Solo las subsanaciones del 2.º entregable que CREARON o CORRIGIERON información en
+// el modelo de datos. Se lee en vivo desde la tabla bitacora_subsanacion.
+app.get("/api/bitacora", async (_req, res) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `select to_char(fecha,'YYYY-MM-DD') fecha, artefacto, obs_codigo, tipo_cambio,
+              objeto, descripcion, fuente, estado
+       from bitacora_subsanacion order by artefacto, obs_codigo, id`);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ---------------- Mapa de flujo de datos (en vivo vs PG) ----------------
 // Nodos = BD + fuentes externas; aristas = flujos agregados origen->destino,
 // fusionadas por par {A,B} con flechas según sentido. Mismo criterio que el

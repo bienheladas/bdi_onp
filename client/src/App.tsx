@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, setKey, Model, Field, Opt, Rel, type EcoData } from "./api";
+import { api, setKey, Model, Field, Opt, Rel, type EcoData, type BitacoraRow } from "./api";
 
 const CAT = ["ambiente", "motor_bd", "tipo_proceso", "dominio_funcional", "proceso_negocio", "oficina"];
 const ENT = ["servidor", "base_de_datos", "aplicacion"];
@@ -44,6 +44,7 @@ export default function App() {
         <h1>BDI ONP · Modelo</h1>
         <div className="grp">Tablero</div>
         <a className={cur === "__pend__" ? "active" : ""} onClick={() => setCur("__pend__")}>⚠ Pendientes</a>
+        <a className={cur === "__bitacora__" ? "active" : ""} onClick={() => setCur("__bitacora__")}>📝 Bitácora de subsanación</a>
         <div className="grp">Catálogos</div>
         {CAT.map((n) => models.find((m) => m.name === n) && (
           <a key={n} className={cur === n ? "active" : ""} onClick={() => setCur(n)}>{n}</a>
@@ -70,6 +71,7 @@ export default function App() {
       <main className="main">
         {cur === "__pend__"
           ? <Pendientes models={models} opts={opts} ensureOpts={ensureOpts} go={go} />
+          : cur === "__bitacora__" ? <Bitacora />
           : cur === "__flujo__" ? <Flujo />
           : cur === "__modelo__" ? <ModeloConceptual />
           : cur.startsWith("__eco_") ? <Ecosistema view={cur.slice(6, -2)} nav={setCur} />
@@ -77,6 +79,47 @@ export default function App() {
           : model ? <Grid key={model.name} model={model} models={models} opts={opts} ensureOpts={ensureOpts} go={go} pending={pending} clearPending={() => setPending(null)} /> : <p>Cargando…</p>}
       </main>
     </div>
+  );
+}
+
+function Bitacora() {
+  const [rows, setRows] = useState<BitacoraRow[] | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { api.bitacora().then(setRows).catch((e: any) => setErr(e?.message || "error")); }, []);
+  if (err) return <div style={{ padding: 24 }}><h2>Bitácora de subsanación</h2><p className="muted">No se pudo cargar: {err}. ¿La tabla <code>bitacora_subsanacion</code> ya está cargada?</p></div>;
+  if (!rows) return <p className="muted" style={{ padding: 24 }}>Cargando…</p>;
+  const nCre = rows.filter((r) => r.tipo_cambio === "Creación").length;
+  const nCor = rows.filter((r) => r.tipo_cambio === "Corrección").length;
+  const arts = new Set(rows.map((r) => r.artefacto)).size;
+  const kpis: [any, string][] = [[rows.length, "cambios al modelo"], [nCre, "creación"], [nCor, "corrección"], [arts, "artefactos"]];
+  return (
+    <>
+      <div className="toolbar"><h2>Bitácora de subsanación · modificaciones al modelo de datos</h2></div>
+      <p className="muted" style={{ margin: "0 0 10px" }}>
+        Subsanaciones del 2.º entregable (INFORME 80-2026) que <b>crearon o corrigieron información</b> en el modelo. Lectura en vivo desde PostgreSQL.
+      </p>
+      <div className="kpis">{kpis.map(([n, l], i) => <div className="kpi" key={i}><div className="n">{n}</div><div className="l">{l}</div></div>)}</div>
+      <table className="wrap">
+        <thead><tr>
+          <th>Fecha</th><th>ADI</th><th>Obs.</th><th>Tipo de cambio</th><th>Objeto del modelo</th><th>Descripción</th><th>Fuente</th><th>Estado</th>
+        </tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td>{r.fecha}</td>
+              <td>{r.artefacto}</td>
+              <td>{r.obs_codigo}</td>
+              <td><span className={"tag " + (r.tipo_cambio === "Creación" ? "tg-green" : "tg-blue")}>{r.tipo_cambio}</span></td>
+              <td><code>{r.objeto}</code></td>
+              <td>{r.descripcion}</td>
+              <td>{r.fuente}</td>
+              <td><span className={"tag " + (/subsan/i.test(r.estado || "") ? "tg-green" : "tg-amber")}>{r.estado}</span></td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={8} className="muted">Sin modificaciones registradas aún.</td></tr>}
+        </tbody>
+      </table>
+    </>
   );
 }
 

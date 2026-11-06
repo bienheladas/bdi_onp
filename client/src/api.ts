@@ -8,6 +8,10 @@ export type Model = { name: string; label: string; pks: string[]; labelFields: s
 export type Opt = { value: any; label: string };
 
 // Explorador "Ecosistema de Datos ONP" (live). Los campos de lista llegan como texto con '§'.
+export type BitacoraRow = {
+  fecha: string; artefacto: string; obs_codigo: string; tipo_cambio: string;
+  objeto: string; descripcion: string; fuente: string | null; estado: string | null;
+};
 export type EcoData = {
   kpis: { bd: number; apps: number; dominios: number; procesos: number; entidades: number; relaciones: number; integraciones: number };
   sistemas: { cod: string; nombre: string; estado: string | null; criticidad: string | null; bases: string | null; doms: string | null; procs: string | null; ents: string | null; areas: string | null; gestor: string | null; respf: string | null; uso: string | null; descripcion: string | null }[];
@@ -59,6 +63,7 @@ export const api = {
   oficinas: (): Promise<Opt[]> => req("/api/oficinas"),
   artefacto: (id: string): Promise<{ id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> }> => req(`/api/artefacto/${encodeURIComponent(id)}`),
   ecosistema: (): Promise<EcoData> => req("/api/ecosistema"),
+  bitacora: (): Promise<BitacoraRow[]> => req("/api/bitacora"),
   columnasDesc: (): Promise<Record<string, Record<string, string>>> => req("/api/columnas_desc"),
   // Descarga EN VIVO del Excel (genera el workbook al vuelo desde PG). Envía la clave por header.
   xlsx: (url: string, filename: string) => downloadXlsx(url, filename),
