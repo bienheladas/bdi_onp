@@ -296,15 +296,15 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),'')||' *', '')
              else coalesce(nullif(trim(b.tipo_info_gest),''),'') end as "Tipo de información gestionada",
         coalesce((select string_agg(distinct tp.desc_tipo_proceso, ' | ' order by tp.desc_tipo_proceso)
-                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
                   join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),'') as "Tipo(s) de proceso",
         coalesce((select string_agg(distinct df.desc_dominio, ' | ' order by df.desc_dominio)
-                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
                   where ab.id_bd=b.id_bd),'') as "Dominio(s) funcional(es)",
         coalesce((select string_agg(distinct pn.desc_proceso, ' | ' order by pn.desc_proceso)
-                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso where ab.id_bd=b.id_bd),'') as "Proceso(s) de negocio",
         coalesce((select string_agg(distinct o.nombre_vigente, ' · ')
                   from aplicacion_basedatos ab join aplicacion_area aa on aa.id_aplicacion=ab.id_aplicacion
@@ -377,13 +377,13 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         b.nombre_bd as "Fuente / BD",
         (select case max(case upper(trim(a.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
            when 3 then 'Alta' when 2 then 'Media' when 1 then 'Baja' else '' end
-         from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion and a.en_modelo_conceptual where ab.id_bd=b.id_bd) as "Criticidad",
+         from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd) as "Criticidad",
         coalesce((select string_agg(distinct df.desc_dominio, ' | ' order by df.desc_dominio)
-                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio
                   where ab.id_bd=b.id_bd),'') as "Dominio(s) funcional(es)",
         coalesce((select string_agg(distinct pn.desc_proceso, ' | ' order by pn.desc_proceso)
-                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
+                  from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso
                   where ab.id_bd=b.id_bd),'') as "Proceso(s) de negocio",
         case when lower(m.desc_motor) like '%oracle%'
@@ -403,9 +403,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              from (
                select
                  coalesce((select max(case when tp.desc_tipo_proceso ilike '%misional%' then 3 when tp.desc_tipo_proceso ilike '%estrat%' then 2 when tp.desc_tipo_proceso ilike '%soporte%' then 1 else 0 end)
-                   from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) tpw,
+                   from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd),0) tpw,
                  coalesce((select max(case upper(trim(a2.criticidad)) when 'ALTA' then 3 when 'MEDIA' then 2 when 'BAJA' then 1 else 0 end)
-                   from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion and a2.en_modelo_conceptual where ab.id_bd=b.id_bd),0) crw
+                   from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd),0) crw
              ) q
            ) qq) as "Dependencia operativa (Alta / Media / Baja)",
         (m.desc_motor||' '||coalesce(b.version_bd,'')) as "Motor y versión",
