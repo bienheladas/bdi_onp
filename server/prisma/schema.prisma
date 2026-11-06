@@ -103,6 +103,7 @@ model base_de_datos {
   fecha_modificacion                                       DateTime?              @db.Timestamptz(6)
   ip_modificacion                                          String?                @db.VarChar(45)
   observaciones                                            String?
+  obs_uso_actual                                           String?
   aplicacion_basedatos                                     aplicacion_basedatos[]
   esquema                                                  esquema[]
   ambiente                                                 ambiente?              @relation(fields: [id_ambiente], references: [id_ambiente], onDelete: NoAction, onUpdate: NoAction)

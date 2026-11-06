@@ -353,7 +353,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              then 'No — sin aplicación vigente'
            else 'No — aplicación de baja / fuera de alcance'
          end) as "¿Dentro del alcance de la BDI?",
-        coalesce(nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
+        coalesce(nullif(trim(b.obs_uso_actual),''), nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
