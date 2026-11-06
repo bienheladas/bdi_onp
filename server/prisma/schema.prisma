@@ -215,6 +215,8 @@ model fuentes_institucionales {
   resumen                    String?
   area_responsable           String?   @db.VarChar(200)
   fecha_version_estado       String?   @db.VarChar(120)
+  version_fuente             String?   @db.VarChar(60)
+  estado_disponibilidad      String?   @db.VarChar(20)
   tipo_fuente                String?   @db.VarChar(120)
   formato_medio              String?   @db.VarChar(120)
   nivel_confidencialidad     String?   @db.VarChar(60)

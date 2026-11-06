@@ -555,6 +555,7 @@ const FCOLS: [string, string][] = [
   ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"],
   ["descripcion_proposito", "Descripción / propósito"], ["resumen", "Resumen / análisis del contenido"],
   ["area_responsable", "Área responsable"], ["fecha_version_estado", "Fecha de la fuente"],
+  ["version_fuente", "Versión de la fuente"], ["estado_disponibilidad", "Estado de disponibilidad"],
   ["tipo_fuente", "Tipo de fuente"], ["formato_medio", "Formato / medio"],
   ["nivel_confidencialidad", "Confidencialidad"], ["relacion_sistemas_procesos", "Relación con sistemas / procesos"],
   ["sirve_adi", "Sirve a (ADI)"],
