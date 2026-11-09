@@ -267,7 +267,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Tipo de fuente", "Tipo de información gestionada",
       "Tipo(s) de proceso", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Área usuaria responsable", "Área técnica responsable",
       "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° integ.", "Integra con (BD / fuentes)",
-      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "¿Dentro del alcance de la BDI?", "Observaciones de uso actual"],
+      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "¿Dentro del modelo conceptual?", "Observaciones de uso actual"],
     sql: `
       select
         'FTE-'||lpad((row_number() over (order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd))::text,3,'0') as "ID",
@@ -351,8 +351,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              then 'No — '||b.clase_contenido
            when not exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd)
              then 'No — sin aplicación vigente'
-           else 'No — aplicación de baja / fuera de alcance'
-         end) as "¿Dentro del alcance de la BDI?",
+           else 'No — aplicación de baja / fuera del modelo conceptual'
+         end) as "¿Dentro del modelo conceptual?",
         coalesce(nullif(trim(b.obs_uso_actual),''), nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
