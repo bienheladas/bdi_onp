@@ -270,7 +270,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° integ.", "Integra con (BD / fuentes)",
       "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "¿Dentro del modelo conceptual?", "Observaciones de uso actual"],
     sql: `
-      select
+      select * from (
+      (select
         'FTE-'||lpad((row_number() over (order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd))::text,3,'0') as "ID",
         b.nombre_bd as "Fuente / BD",
         case when length(trim(coalesce(b.desc_base_datos,'')))>=25 then b.desc_base_datos
@@ -360,7 +361,35 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
       left join servidor s on s.id_servidor=b.id_servidor
-      order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd
+      order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd)
+      union all
+      (select
+        'EXT-'||lpad((row_number() over (order by fe.codigo))::text,2,'0') as "ID",
+        fe.nombre as "Fuente / BD",
+        fe.proposito as "Descripción general",
+        '' as "Motor", '' as "Versión", '' as "Edición", '' as "Packs licenciables en uso",
+        '' as "Ambiente", '' as "Servidor", '' as "Datacenter", '' as "Sistema operativo",
+        null::numeric as "Tamaño (GB)", null::int as "N° esquemas", null::int as "N° tablas", null::numeric as "Crecimiento (GB/mes)",
+        'Fuente externa' as "Tipo de fuente",
+        fe.entidades_negocio as "Tipo de información gestionada",
+        '' as "Tipo(s) de proceso",
+        fe.dominios_siip as "Dominio(s) funcional(es)",
+        '' as "Proceso(s) de negocio",
+        '' as "Área usuaria responsable",
+        'OTI (DataStage)' as "Área técnica responsable",
+        fe.proveedor as "Gestor",
+        '' as "Responsable funcional",
+        '' as "Aplicaciones consumidoras",
+        (select count(*) from integraciones ix where ix.id_fuente_externa_origen=fe.id_fuente_ext)::int as "N° integ.",
+        fe.bd_destino_onp as "Integra con (BD / fuentes)",
+        'Alta *' as "Relevancia p/ trazabilidad",
+        nullif('Confidencialidad: '||coalesce(fe.nivel_confidencialidad,''),'Confidencialidad: ') as "Restricciones / limitaciones",
+        'Operativo' as "Estado",
+        'Sí' as "¿Dentro del modelo conceptual?",
+        nullif(concat_ws('. ', nullif(fe.mecanismo,''), nullif('Periodicidad: '||fe.periodicidad,'Periodicidad: '), nullif('Formato: '||fe.formato,'Formato: '), nullif('Vigencia: '||fe.vigencia,'Vigencia: ')),'') as "Observaciones de uso actual"
+      from fuentes_externas fe)
+      ) q
+      order by case when "ID" like 'EXT-%' then 1 else 0 end, "ID"
     `,
   },
   "ADI-07": {
