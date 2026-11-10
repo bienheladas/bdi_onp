@@ -203,7 +203,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     sql: `
       select
         (row_number() over (order by i.mecanismo, i.id_integracion))::int as "N°",
-        coalesce(bo.nombre_bd, nullif(trim(i.origen_externo),''),
+        coalesce(bo.nombre_bd, nullif(trim(feo.proveedor||' – '||feo.codigo),' – '), nullif(trim(i.origen_externo),''),
           case when d.usa_archivo_plano then 'Archivo plano (texto)' end,
           case when i.mecanismo='ETL DataStage' then '(origen parametrizado — pendiente)' else '' end) as "Fuente origen",
         mo.desc_motor as "Motor origen",
@@ -251,6 +251,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce(d.malla_raiz,'') as "Malla (OTI, agrupador)"
       from integraciones i
       left join base_de_datos bo on bo.id_bd=i.id_bd_origen
+      left join fuentes_externas feo on feo.id_fuente_ext=i.id_fuente_externa_origen
       left join motor_bd mo on mo.id_motor_bd=bo.id_motor_bd
       left join base_de_datos bd on bd.id_bd=i.id_bd_destino
       left join motor_bd md on md.id_motor_bd=bd.id_motor_bd
@@ -320,9 +321,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         (select count(*) from integraciones ix where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd)::int as "N° integ.",
         (select string_agg(distinct case when ix.id_bd_origen=b.id_bd
             then coalesce(ix.mecanismo,'?')||' → '||coalesce(bd2.nombre_bd, ix.destino_externo,'?')
-            else coalesce(ix.mecanismo,'?')||' ← '||coalesce(bo2.nombre_bd, ix.origen_externo,'?') end, E'\n')
+            else coalesce(ix.mecanismo,'?')||' ← '||coalesce(bo2.nombre_bd, nullif(trim(feo.proveedor||' – '||feo.codigo),' – '), ix.origen_externo,'?') end, E'\n')
           from integraciones ix left join base_de_datos bd2 on bd2.id_bd=ix.id_bd_destino
           left join base_de_datos bo2 on bo2.id_bd=ix.id_bd_origen
+          left join fuentes_externas feo on feo.id_fuente_ext=ix.id_fuente_externa_origen
           where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) as "Integra con (BD / fuentes)",
         (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
