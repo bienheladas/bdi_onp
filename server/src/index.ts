@@ -273,7 +273,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       select * from (
       (select
         'FTE-'||lpad((row_number() over (order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd))::text,3,'0') as "ID",
-        b.nombre_bd as "Fuente / BD",
+        b.nombre_bd || case when (select count(*) from base_de_datos b2 where b2.nombre_bd=b.nombre_bd)>1
+                            then ' ('||coalesce(s.nombre_servidor,'sin servidor')||')' else '' end as "Fuente / BD",
         case when length(trim(coalesce(b.desc_base_datos,'')))>=25 then b.desc_base_datos
              else coalesce(nullif(trim(
                'BD '||coalesce(m.desc_motor,'')||coalesce(' '||b.version_bd,'')||' en '||coalesce(lower(a.desc_ambiente),'ambiente n/d')||
