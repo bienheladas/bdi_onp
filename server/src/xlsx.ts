@@ -225,6 +225,7 @@ export function addPortada(wb: ExcelJS.Workbook, ids: string[]) {
   full(2, "Documento Equivalente de la BDI — Artefactos del Diagnóstico AS-IS", { name: "Calibri", size: 15, bold: true, color: { argb: WHITE } }, BLUE, 30);
   full(3, "Entregable 2 · Diagnóstico del ecosistema de datos (AS-IS)", { name: "Calibri", size: 10, bold: true, color: { argb: NAVY } }, GRAY, 22);
   full(4, VERSION_VAL, { name: "Calibri", size: 9, italic: true }, null, 18);
+  full(5, "Alcance: se consideran únicamente las fuentes de datos en ambiente de Producción. · Procedencia: todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son calculados o derivados de datos recopilados de las fuentes institucionales (F-01…F-31); ninguno es inferido sin sustento (ver matriz de trazabilidad).", { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, 44, "top");
   full(6, "Contenido", { name: "Calibri", size: 11, bold: true, color: { argb: NAVY } }, STEEL, 16);
   let r = 7;
   for (const id of ids) { full(r, `${id}  ·  ${M[id]?.a2.split("· ")[1] || id}`, { name: "Calibri", size: 10 }, (r % 2 ? ZEBRA : null), 16); r++; }

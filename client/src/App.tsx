@@ -519,6 +519,9 @@ function Artefactos() {
         <a className="btn" onClick={() => api.xlsx("/api/artefactos.xlsx", "Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx").catch((e) => alert(e.message))}>⬇ Descargar todo (.xlsx)</a>
       </div>
       {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
+      <p className="muted" style={{ margin: "0 0 10px", fontSize: 12, borderLeft: "3px solid #bbb", paddingLeft: 8 }}>
+        <b>Alcance:</b> se consideran únicamente las fuentes de datos en ambiente de <b>Producción</b>. · <b>Procedencia:</b> todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son <b>calculados o derivados</b> de datos recopilados de las <b>fuentes institucionales</b> (F-01…F-31); ninguno es inferido sin sustento (ver matriz de trazabilidad).
+      </p>
       {!data ? <p className="muted">Cargando…</p> : sel === "ADI-08" ? (() => {
         // Vista FORMULARIO (una ficha por riesgo): campos cortos en rejilla (etiqueta+dato),
         // campos de texto/análisis a todo el ancho (etiqueta + texto completo).
