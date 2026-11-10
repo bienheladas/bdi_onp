@@ -359,7 +359,12 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              then 'No — sin aplicación vigente'
            else 'No — aplicación de baja / fuera del modelo conceptual'
          end) as "¿Dentro del modelo conceptual?",
-        coalesce(nullif(trim(b.obs_uso_actual),''), nullif(trim(b.observaciones),''),'') as "Observaciones de uso actual"
+        nullif(trim(
+          coalesce(nullif(trim(b.obs_uso_actual),''), nullif(trim(b.observaciones),''),'')
+          || case when upper(coalesce(b.estado_bd,'')) like '%CANDIDATO%' and b.en_modelo_conceptual
+                  then ' [Para consulta con ONP] Fuente candidata a dar de baja incluida en el alcance porque su información debe migrarse a la BDI antes de su decomiso; inclusión sujeta a confirmación de ONP.'
+                  else '' end
+        ),'') as "Observaciones de uso actual"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
