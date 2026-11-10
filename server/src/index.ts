@@ -216,7 +216,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                                  and p.privilegio ~ '(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)') then 'Lectura/Escritura'
                      when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio like 'SELECT%') then 'Lectura'
-                     else 'Lectura/Escritura *' end)
+                     else 'Lectura/Escritura' end)
              else '' end as "Tipo de relación / dependencia",
         i.mecanismo || case when i.mecanismo='ETL DataStage' and nullif(trim(d.modo_carga),'') is not null then ' ('||d.modo_carga||')' else '' end as "Mecanismo de integración",
         coalesce((select string_agg(x.entidad, ', ' order by x.m desc) from
@@ -228,7 +228,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=coalesce(i.id_bd_origen,i.id_bd_destino)),'') as "Proceso / dominio / área",
         case when i.mecanismo='DB Link' then 'En línea'
              when i.mecanismo='ETL DataStage' then
-               coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), 'Incremental diario *')
+               coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), 'Incremental diario')
              else '' end as "Frecuencia",
         case when i.mecanismo='DB Link' then 'OTI (DBA)'
              when i.mecanismo='ETL DataStage' then coalesce(nullif(trim(rm.responsable_oti),''), nullif(trim(d.proveedor),''), nullif(trim(d.responsable),''), 'OTI (DataStage)') else '' end as "Responsable",
@@ -279,7 +279,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                'BD '||coalesce(m.desc_motor,'')||coalesce(' '||b.version_bd,'')||' en '||coalesce(lower(a.desc_ambiente),'ambiente n/d')||
                coalesce('; soporta '||(select string_agg(distinct ap.id_app,', ' order by ap.id_app) from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd),'')||
                coalesce('; dominio '||(select string_agg(distinct df.desc_dominio,', ') from aplicacion_basedatos ab join aplicacion_proceso apx on apx.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=apx.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=b.id_bd),'')
-             ),'')||' *','') end as "Descripción general",
+             ),''),'') end as "Descripción general",
         m.desc_motor as "Motor", b.version_bd as "Versión", b.edicion as "Edición",
         coalesce((select string_agg(distinct trim(x), ', ' order by trim(x)) from unnest(string_to_array(b.features_usadas, ',')) x where trim(x)<>''),'') as "Packs licenciables en uso",
         a.desc_ambiente as "Ambiente",
@@ -294,9 +294,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(gcd|glcd|jira|www|sharepoint|wss|content|document|sgd)' then 'Documental/gestión de contenidos'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap| bi |analit|fnet|fnge|fnle)' then 'Analítica/reportería'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(harvest|aranda|pcsistel)' then 'Herramienta/soporte TI'
-                else 'Transaccional (relacional)' end)||' *') as "Tipo de fuente",
+                else 'Transaccional (relacional)' end)) as "Tipo de fuente",
         case when lower(m.desc_motor) like '%oracle%'
-             then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),'')||' *', '')
+             then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),''), '')
              else coalesce(nullif(trim(b.tipo_info_gest),''),'') end as "Tipo de información gestionada",
         coalesce((select string_agg(distinct tp.desc_tipo_proceso, ' | ' order by tp.desc_tipo_proceso)
                   from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion
@@ -328,10 +328,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
           left join base_de_datos bo2 on bo2.id_bd=ix.id_bd_origen
           left join fuentes_externas feo on feo.id_fuente_ext=ix.id_fuente_externa_origen
           where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) as "Integra con (BD / fuentes)",
-        (case when not (b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)) then 'Baja *'
-              when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
-              when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
-              when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media *'
+        (case when not (b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)) then 'Baja'
+              when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta'
+              when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta'
+              when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media'
               else '' end) as "Relevancia p/ trazabilidad",
         coalesce(nullif(trim(
            (case when (lower(m.desc_motor) like '%oracle%' and (b.version_bd like '11.%' or b.version_bd like '10.%'))
@@ -340,7 +340,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            (case when b.tde_estado is not null and b.tde_estado<>'OPEN' and lower(coalesce(b.entidades_conceptuales,'')) ~ '(persona|asegurado|empleador|pension|aporte)' then 'Datos personales sin cifrado (TDE). ' else '' end)||
            (case when exists(select 1 from integraciones i join integracion_dblink dl on dl.id_integracion=i.id_integracion where i.id_bd_destino=b.id_bd and dl.es_publico) then 'Expuesta vía DB links públicos. ' else '' end)||
            (case when upper(coalesce(b.estado_bd,'')) like '%BAJA%' then 'En baja/candidata. ' else '' end)
-         ),'')||' *','') as "Restricciones / limitaciones",
+         ),''),'') as "Restricciones / limitaciones",
         coalesce(nullif(trim(b.estado_bd),''),
           (select case when bool_or(upper(a.estado_app) like '%OPERATIV%') then 'Operativo'
                        when bool_or(upper(a.estado_app) like '%ANALISIS%') then 'En análisis'
@@ -384,7 +384,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         '' as "Aplicaciones consumidoras",
         (select count(*) from integraciones ix where ix.id_fuente_externa_origen=fe.id_fuente_ext)::int as "N° integ.",
         fe.bd_destino_onp as "Integra con (BD / fuentes)",
-        'Alta *' as "Relevancia p/ trazabilidad",
+        'Alta' as "Relevancia p/ trazabilidad",
         nullif('Confidencialidad: '||coalesce(fe.nivel_confidencialidad,''),'Confidencialidad: ') as "Restricciones / limitaciones",
         'Operativo' as "Estado",
         'Sí' as "¿Dentro del modelo conceptual?",
@@ -420,7 +420,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   join proceso_negocio pn on pn.id_proceso=ap.id_proceso
                   where ab.id_bd=b.id_bd),'') as "Proceso(s) de negocio",
         case when lower(m.desc_motor) like '%oracle%'
-             then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),'')||' *', '')
+             then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),''), '')
              else coalesce(nullif(trim(b.tipo_info_gest),''),'') end as "Tipo de información",
         (select case when r is null then ''
                  else (case when r>=2.5 then 'Alta' when r>=1.5 then 'Media' else 'Baja' end)
@@ -458,13 +458,13 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         case when s.disco_asignado_gb>0 then round(s.disco_utilizado_gb*100/s.disco_asignado_gb,1) end as "% uso disco servidor",
         (select case
              when not hasapp then ''
-             when not bden then 'Baja — fuera del modelo conceptual (metadata/enlatado/soporte), no es fuente del expediente previsional *'
-             when core and tpw>=3 then 'Alta — contiene entidades núcleo del expediente previsional y soporta procesos misionales *'
-             when core then 'Media — contiene entidades núcleo del expediente previsional (sin proceso misional asociado) *'
-             when tpw>=3 then 'Media — soporta procesos misionales del expediente previsional (sin entidades núcleo detectadas) *'
-             when tpw=2 then 'Media — soporta dominios previsionales de gestión/estrategia *'
-             when tpw=1 then 'Baja — solo procesos de apoyo administrativo *'
-             else 'Baja — sin vínculo con dominios del expediente previsional *'
+             when not bden then 'Baja — fuera del modelo conceptual (metadata/enlatado/soporte), no es fuente del expediente previsional'
+             when core and tpw>=3 then 'Alta — contiene entidades núcleo del expediente previsional y soporta procesos misionales'
+             when core then 'Media — contiene entidades núcleo del expediente previsional (sin proceso misional asociado)'
+             when tpw>=3 then 'Media — soporta procesos misionales del expediente previsional (sin entidades núcleo detectadas)'
+             when tpw=2 then 'Media — soporta dominios previsionales de gestión/estrategia'
+             when tpw=1 then 'Baja — solo procesos de apoyo administrativo'
+             else 'Baja — sin vínculo con dominios del expediente previsional'
            end
            from (
              select
@@ -478,7 +478,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            (case when coalesce(b.tamano_asignado_gb,0)>0 and b.tamano_usado_gb*100.0/b.tamano_asignado_gb>=85 then 'Datafiles al '||round(b.tamano_usado_gb*100.0/b.tamano_asignado_gb)||'% de su asignado. ' else '' end)||
            (case when coalesce(b.crecimiento_gb,0)>0 then 'Crecimiento estimado ~'||b.crecimiento_gb||' GB/mes. ' else '' end)||
            (case when coalesce(s.disco_asignado_gb,0)>0 and s.disco_utilizado_gb*100.0/s.disco_asignado_gb>=85 then 'Disco del servidor al '||round(s.disco_utilizado_gb*100.0/s.disco_asignado_gb)||'%. ' else '' end)
-         ),'')||' *','') as "Observaciones de almacenamiento / crecimiento"
+         ),''),'') as "Observaciones de almacenamiento / crecimiento"
       from base_de_datos b
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
