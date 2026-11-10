@@ -291,7 +291,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
           (case when lower(b.nombre_bd) ~ '(sp2010|sp2013|sharepoint|wss_|_mms_|_ups_|ssapp|_rs_db|admincontent)' then 'Documental/gestión de contenidos'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ 'aud' then 'Auditoría'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(bdi|dbi|integ|consolid)' then 'Integración/consolidación'
-                when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(gcd|glcd|jira|www|sharepoint|wss|content|document|sgd)' then 'Documental/gestión de contenidos'
+                when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(gcd|glcd|jira|www|sharepoint|wss|filenet|fnet|content|documental|micrograb|sgd)' then 'Documental/gestión de contenidos'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap| bi |analit|fnet|fnge|fnle)' then 'Analítica/reportería'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(harvest|aranda|pcsistel)' then 'Herramienta/soporte TI'
                 else 'Transaccional (relacional)' end)) as "Tipo de fuente",
