@@ -231,7 +231,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), 'Incremental diario')
              else '' end as "Frecuencia",
         case when i.mecanismo='DB Link' then 'OTI (DBA)'
-             when i.mecanismo='ETL DataStage' then coalesce(nullif(trim(rm.responsable_oti),''), nullif(trim(d.proveedor),''), nullif(trim(d.responsable),''), 'OTI (DataStage)') else '' end as "Responsable",
+             when i.mecanismo='ETL DataStage' then
+               coalesce(nullif(trim(rm.responsable_oti),''),'OTI')   -- responsable ONP (OTI opera la plataforma DataStage)
+               || coalesce(' (operador: '||nullif(trim(coalesce(d.proveedor, d.responsable)),'')||')','')  -- tercero relevado como operador
+             else '' end as "Responsable",
         case when i.mecanismo='DB Link' then
                (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio like 'SELECT%')
@@ -294,7 +297,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ 'aud' then 'Auditoría'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(bdi|dbi|integ|consolid)' then 'Integración/consolidación'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(gcd|glcd|jira|www|sharepoint|wss|filenet|fnet|content|documental|micrograb|sgd)' then 'Documental/gestión de contenidos'
-                when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap| bi |analit|fnet|fnge|fnle)' then 'Analítica/reportería'
+                when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap| bi |analit|explotaci|dashboard|reporter[íi]a|fnet|fnge|fnle)' then 'Analítica/reportería'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(harvest|aranda|pcsistel)' then 'Herramienta/soporte TI'
                 else 'Base de datos relacional' end)) as "Tipo de fuente",
         case when lower(m.desc_motor) like '%oracle%'
