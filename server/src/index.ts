@@ -346,7 +346,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                        when bool_or(upper(a.estado_app) like '%ANALISIS%') then 'En análisis'
                        when bool_or(upper(a.estado_app) like '%CANDIDATO%') then 'Candidato a dar de baja'
                        when count(*)>0 then 'De baja' else null end
-           from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd), '') as "Estado",
+           from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd),
+          case when b.fec_volumetria is not null then 'Operativo' end, '') as "Estado",
         (case
            when b.en_modelo_conceptual
                 and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion
