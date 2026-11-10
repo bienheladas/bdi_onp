@@ -288,7 +288,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas",
         b.crecimiento_gb as "Crecimiento (GB/mes)",
         coalesce(nullif(trim(b.tipo_bd),''),
-          (case when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ 'aud' then 'Auditoría'
+          (case when lower(b.nombre_bd) ~ '(sp2010|sp2013|sharepoint|wss_|_mms_|_ups_|ssapp|_rs_db|admincontent)' then 'Documental/gestión de contenidos'
+                when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ 'aud' then 'Auditoría'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(bdi|dbi|integ|consolid)' then 'Integración/consolidación'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(gcd|glcd|jira|www|sharepoint|wss|content|document|sgd)' then 'Documental/gestión de contenidos'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap| bi |analit|fnet|fnge|fnle)' then 'Analítica/reportería'
@@ -327,7 +328,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
           left join base_de_datos bo2 on bo2.id_bd=ix.id_bd_origen
           left join fuentes_externas feo on feo.id_fuente_ext=ix.id_fuente_externa_origen
           where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) as "Integra con (BD / fuentes)",
-        (case when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
+        (case when not (b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)) then 'Baja *'
+              when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta *'
               when exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd) then 'Media *'
               else '' end) as "Relevancia p/ trazabilidad",
