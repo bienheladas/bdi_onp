@@ -417,7 +417,7 @@ function EcoCobertura({ d }: { d: EcoData }) {
   );
 }
 
-type ArtMeta = { id: string; titulo: string; generador: string; archivo?: string; fuente?: string };
+type ArtMeta = { id: string; titulo: string; generador: string; archivo?: string; fuente?: string; sheets?: { id: string; label: string }[] };
 type ArtData = { id: string; titulo: string; columns: string[]; rows: string[][]; links: Record<string, string> };
 // ADI-01 se arma EN VIVO desde la tabla fuentes_institucionales (22 oficiales + nuevas LCP),
 // no de un Excel en duro. El resto de artefactos sí vienen de su <ID>.json.
@@ -465,6 +465,7 @@ const WMAP: Record<string, Record<string, number>> = { "ADI-09": W09, "ADI-04": 
 function Artefactos() {
   const [meta, setMeta] = useState<ArtMeta[]>([]);
   const [sel, setSel] = useState<string>("");
+  const [sheet, setSheet] = useState<string>("");
   const [data, setData] = useState<ArtData | null>(null);
   const [q, setQ] = useState("");
   const [desc, setDesc] = useState<Record<string, Record<string, string>>>({});
@@ -473,19 +474,22 @@ function Artefactos() {
     fetch("/artefactos/manifest.json").then((r) => r.json()).then((m: ArtMeta[]) => { setMeta(m); if (m[0]) setSel(m[0].id); });
     api.columnasDesc().then(setDesc).catch(() => setDesc({}));
   }, []);
+  const cur = meta.find((m) => m.id === sel);
+  const sheets = cur?.sheets;
+  const effSheet = sheets ? (sheets.some((s) => s.id === sheet) ? sheet : sheets[0].id) : "";
+  const viewId = sheets ? effSheet : sel;   // artefacto/hoja efectivamente mostrado
   useEffect(() => {
-    if (!sel || meta.length === 0) return;
+    if (!viewId || meta.length === 0) return;
     setData(null); setSort(null);
-    const m0 = meta.find((m) => m.id === sel);
-    const p = m0?.fuente === "tabla" ? loadFuentes()
-      : m0?.fuente === "live" ? api.artefacto(sel)
-      : fetch(`/artefactos/${sel}.json`).then((r) => r.json());
+    const p = sheets ? api.artefacto(viewId)
+      : cur?.fuente === "tabla" ? loadFuentes()
+      : cur?.fuente === "live" ? api.artefacto(viewId)
+      : fetch(`/artefactos/${viewId}.json`).then((r) => r.json());
     p.then(setData).catch(() => setData(null));
-  }, [sel, meta]);
+  }, [viewId, meta]);
   // clic en cabecera: asc -> desc -> sin orden
   const toggleSort = (ci: number) => setSort((s) =>
     s && s.col === ci ? (s.dir === "asc" ? { col: ci, dir: "desc" } : null) : { col: ci, dir: "asc" });
-  const cur = meta.find((m) => m.id === sel);
   const rows = useMemo(() => {
     if (!data) return [] as { i: number; r: string[] }[];
     let all = data.rows.map((r, i) => ({ i, r }));
@@ -515,14 +519,19 @@ function Artefactos() {
         </select>
         <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
         {sel === "ADI-05" && <a className="btn sec" href="/flujo_datos_onp.html" target="_blank" rel="noreferrer">🗺 Mapa de flujo de datos ↗</a>}
-        {sel && <a className="btn sec" onClick={() => api.xlsx(`/api/artefacto/${encodeURIComponent(sel)}/xlsx`, `${sel}.xlsx`).catch((e) => alert(e.message))}>⬇ Este (.xlsx)</a>}
+        {viewId && <a className="btn sec" onClick={() => api.xlsx(`/api/artefacto/${encodeURIComponent(viewId)}/xlsx`, `${viewId}.xlsx`).catch((e) => alert(e.message))}>⬇ Esta hoja (.xlsx)</a>}
         <a className="btn" onClick={() => api.xlsx("/api/artefactos.xlsx", "Artefactos_ADI_E2_Diagnostico_ASIS_LCP.xlsx").catch((e) => alert(e.message))}>⬇ Descargar todo (.xlsx)</a>
       </div>
+      {sheets && <div className="subtabs" style={{ display: "flex", gap: 6, margin: "0 0 8px" }}>
+        {sheets.map((s) => <button key={s.id} className={"btn sec" + (s.id === viewId ? " active" : "")}
+          style={s.id === viewId ? { background: "#1F4E78", color: "#fff" } : {}}
+          onClick={() => setSheet(s.id)}>{s.label}</button>)}
+      </div>}
       {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
       <p className="muted" style={{ margin: "0 0 10px", fontSize: 12, borderLeft: "3px solid #bbb", paddingLeft: 8 }}>
         <b>Alcance:</b> se consideran únicamente las fuentes de datos en ambiente de <b>Producción</b>. · <b>Procedencia:</b> todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son <b>calculados o derivados</b> de datos recopilados de las <b>fuentes institucionales</b> (F-01…F-31); ninguno es inferido sin sustento (ver matriz de trazabilidad).
       </p>
-      {!data ? <p className="muted">Cargando…</p> : sel === "ADI-08" ? (() => {
+      {!data ? <p className="muted">Cargando…</p> : viewId === "ADI-08" ? (() => {
         // Vista FORMULARIO (una ficha por riesgo): campos cortos en rejilla (etiqueta+dato),
         // campos de texto/análisis a todo el ancho (etiqueta + texto completo).
         const maxlen = data.columns.map((_, ci) => rows.reduce((m, { r }) => Math.max(m, (r[ci] || "").length), 0));
@@ -534,13 +543,13 @@ function Artefactos() {
               <div className="riskcard" key={i}>
                 <div className="rc-head">
                   {shortIdx.flatMap((ci) => [
-                    <div className="rc-k" key={ci + "k"} title={desc[sel]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>,
+                    <div className="rc-k" key={ci + "k"} title={desc[viewId]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>,
                     <div className="rc-v" key={ci + "v"}>{r[ci]}</div>,
                   ])}
                 </div>
                 {longIdx.map((ci) => (
                   <div className="rc-row" key={ci}>
-                    <div className="rc-k" title={desc[sel]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>
+                    <div className="rc-k" title={desc[viewId]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>
                     <div className="rc-v">{r[ci]}</div>
                   </div>
                 ))}
@@ -551,10 +560,10 @@ function Artefactos() {
         );
       })() : (
         <div className="tablewrap">
-          <table className={WMAP[sel] ? "wrap" : ""}>
-            {WMAP[sel] && <colgroup>{data.columns.map((c, i) => <col key={i} style={{ width: (WMAP[sel][c] || 180) + "px" }} />)}</colgroup>}
+          <table className={WMAP[viewId] ? "wrap" : ""}>
+            {WMAP[viewId] && <colgroup>{data.columns.map((c, i) => <col key={i} style={{ width: (WMAP[viewId][c] || 180) + "px" }} />)}</colgroup>}
             <thead><tr>{data.columns.map((c, i) => {
-              const d = desc[sel]?.[c];
+              const d = desc[viewId]?.[c];
               const ind = sort && sort.col === i ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
               return <th key={i} className="sortable" onClick={() => toggleSort(i)}
                 title={d ? `${c} — ${d}` : c}>{c}{d ? <span className="hdrinfo"> ⓘ</span> : null}
