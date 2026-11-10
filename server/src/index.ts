@@ -341,7 +341,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            (case when (lower(m.desc_motor) like '%oracle%' and (b.version_bd like '11.%' or b.version_bd like '10.%'))
                    or (lower(m.desc_motor) like '%sql%' and b.version_bd ~ '^(7|2000|2005|2008|2012)') then 'Versión fuera de soporte. ' else '' end)||
            (case when b.modo_archivado='NOARCHIVELOG' then 'Sin archivado de redo (NOARCHIVELOG). ' else '' end)||
-           (case when b.tde_estado is not null and b.tde_estado<>'OPEN' and lower(coalesce(b.entidades_conceptuales,'')) ~ '(persona|asegurado|empleador|pension|aporte)' then 'Datos personales sin cifrado (TDE). ' else '' end)||
+           (case when b.tde_estado is not null and b.tde_estado not ilike 'Cifrado activo%' and lower(coalesce(b.entidades_conceptuales,'')) ~ '(persona|asegurado|empleador|pension|aporte)' then 'Cifrado en reposo no activo (TDE). ' else '' end)||
            (case when exists(select 1 from integraciones i join integracion_dblink dl on dl.id_integracion=i.id_integracion where i.id_bd_destino=b.id_bd and dl.es_publico) then 'Expuesta vía DB links públicos. ' else '' end)||
            (case when upper(coalesce(b.estado_bd,'')) like '%BAJA%' then 'En baja/candidata. ' else '' end)
          ),''),'') as "Restricciones / limitaciones",
