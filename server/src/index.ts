@@ -527,6 +527,82 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       order by tp.id_tipo_proceso, df.desc_dominio
     `,
   },
+  "ADI-04-FD": {
+    titulo: "Matriz de Fuentes de Datos por Dominio Funcional — Fuente × Dominio (en vivo)",
+    columns: ["Dominio funcional", "Tipo de proceso", "Fuente de datos asociada", "Sistema / repositorio relacionado",
+      "Tipo de información gestionada", "Área responsable", "Uso principal de la información",
+      "Nivel de relación con el dominio", "Fuentes compartidas con otros dominios",
+      "Vacíos / solapamientos / dispersión", "Observaciones para el modelo conceptual"],
+    sql: `
+      with dom_app as (select ap.id_proceso, ap.id_aplicacion from aplicacion_proceso ap
+                       join aplicacion a on a.id=ap.id_aplicacion where a.en_modelo_conceptual),
+      fd as (select distinct abx.id_bd, pn.id_dominio
+             from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+             join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion
+             join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual),
+      ndom as (select id_bd, count(distinct id_dominio) n_dom from fd group by id_bd),
+      cx as (select * from (values
+        ('Acompañamiento al asegurado','Atención al asegurado'),
+        ('Apelaciones previsionales','Expedientes'),
+        ('Apelaciones previsionales','Derechos y prestaciones'),
+        ('Gestión Documental y Archivo','Documentos y notificaciones'),
+        ('Integridad, Riesgos y Control Interno','Riesgos'),
+        ('Inversiones previsionales','Inversiones'),
+        ('Planillas y pagos','Pagos y planillas'),
+        ('Regímenes previsionales','Aportes'),
+        ('Regímenes previsionales','Derechos y prestaciones'),
+        ('Seguros previsionales','Seguros')
+      ) as t(desc_dominio, dominio_info)),
+      ent as (select fe.id_bd, ec.dominio_info, ec.es_nucleo, fe.nro_menciones
+              from fuente_entidad fe join entidad_conceptual ec on ec.nombre=fe.entidad),
+      fdw as (select f.id_bd, f.id_dominio,
+                coalesce(sum(e.nro_menciones) filter (where e.es_nucleo),0) nmen_nuc,
+                coalesce(sum(e.nro_menciones),0) nmen_dom
+              from fd f join dominio_funcional df on df.id_dominio=f.id_dominio
+              left join cx on cx.desc_dominio=df.desc_dominio
+              left join ent e on e.id_bd=f.id_bd and e.dominio_info=cx.dominio_info
+              group by f.id_bd, f.id_dominio),
+      dmax as (select id_dominio, max(nmen_nuc) mxnuc, max(nmen_dom) mxdom, count(*) n_bd from fdw group by id_dominio)
+      select
+        df.desc_dominio as "Dominio funcional",
+        tp.desc_tipo_proceso as "Tipo de proceso",
+        b.nombre_bd as "Fuente de datos asociada",
+        coalesce((select string_agg(distinct a.id_app||' '||coalesce(a.abreviatura_app,a.nombre_app),', ')
+           from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+           join aplicacion a on a.id=ap.id_aplicacion
+           join aplicacion_basedatos abx on abx.id_aplicacion=a.id
+           where abx.id_bd=b.id_bd and pn.id_dominio=df.id_dominio),'') as "Sistema / repositorio relacionado",
+        coalesce(b.tipo_info_gest,'') as "Tipo de información gestionada",
+        coalesce((select string_agg(distinct o.nombre_vigente,' · ' order by o.nombre_vigente)
+           from dom_app ap join proceso_negocio pn on pn.id_proceso=ap.id_proceso
+           join aplicacion_area aa on aa.id_aplicacion=ap.id_aplicacion
+           join oficina o on trim(o.sigla)=trim(aa.sigla)
+           where pn.id_dominio=df.id_dominio
+             and ap.id_aplicacion in (select abx.id_aplicacion from aplicacion_basedatos abx where abx.id_bd=b.id_bd)),'') as "Área responsable",
+        coalesce(df.uso_principal,'') as "Uso principal de la información",
+        (case
+           when dm.mxdom=0 then                                   -- dominio sin entidades conceptuales (gobierno/soporte): fallback
+             (case when dm.n_bd=1 or nd.n_dom=1 then 'Principal'
+                   when nd.n_dom>=4 then 'Referencial' else 'Complementaria' end)
+           when dm.mxnuc>0 and w.nmen_nuc=dm.mxnuc then 'Principal'   -- concentra las entidades NÚCLEO del dominio = sistema de registro
+           when dm.mxnuc=0 and w.nmen_dom=dm.mxdom then 'Principal'   -- (sin núcleo en el dominio) mayor footprint del dominio
+           when w.nmen_dom>0 then 'Complementaria'                   -- aporta entidades del dominio, no es la autoridad
+           else 'Referencial' end) as "Nivel de relación con el dominio", -- participa pero no guarda datos del dominio (referencia)
+        coalesce((select string_agg(distinct df2.desc_dominio,' · ' order by df2.desc_dominio)
+           from fd f2 join dominio_funcional df2 on df2.id_dominio=f2.id_dominio
+           where f2.id_bd=b.id_bd and f2.id_dominio<>df.id_dominio),'(exclusiva de este dominio)') as "Fuentes compartidas con otros dominios",
+        coalesce(df.obs_vacios,'') as "Vacíos / solapamientos / dispersión",
+        coalesce(df.obs_modelo_concept,'') as "Observaciones para el modelo conceptual"
+      from fd
+      join base_de_datos b on b.id_bd=fd.id_bd
+      join dominio_funcional df on df.id_dominio=fd.id_dominio
+      join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
+      join ndom nd on nd.id_bd=fd.id_bd
+      join fdw w on w.id_bd=fd.id_bd and w.id_dominio=fd.id_dominio
+      join dmax dm on dm.id_dominio=fd.id_dominio
+      order by tp.id_tipo_proceso, df.desc_dominio, w.nmen_nuc desc, w.nmen_dom desc, b.nombre_bd
+    `,
+  },
   "ADI-09": {
     titulo: "Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos (en vivo)",
     columns: ["N°", "Tipo de proceso", "Dominio funcional", "Proceso de negocio", "N° apps", "Aplicaciones",
@@ -589,7 +665,7 @@ app.get("/api/artefacto/:id", async (req, res) => {
 });
 
 // ---------------- Exportación EN VIVO a Excel (sin archivos estáticos) ----------------
-const ART_IDS = ["ADI-01", "ADI-02", "ADI-03", "ADI-04", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
+const ART_IDS = ["ADI-01", "ADI-02", "ADI-03", "ADI-04", "ADI-04-FD", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
 const FCOLS: [string, string][] = [
   ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"],
   ["descripcion_proposito", "Descripción / propósito"], ["resumen", "Resumen / análisis del contenido"],
