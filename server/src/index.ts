@@ -258,6 +258,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join integracion_datastage d on d.id_integracion=i.id_integracion
       left join integracion_dblink dl on dl.id_integracion=i.id_integracion
       left join relevamiento_malla rm on upper(rm.malla)=upper(trim(split_part(d.malla_raiz,';',1)))
+      where left(upper(coalesce(i.nombre_enlace,'')),4) <> 'SEQ_'   -- excluye secuencias/mallas orquestadoras (no mueven datos; su agrupación vive en malla_raiz de los jobs hijos)
       order by i.mecanismo, i.id_integracion
     `,
   },
@@ -744,6 +745,7 @@ app.get("/api/flujo", async (_req, res) => {
       `select i.origen_externo, i.id_bd_origen, i.id_bd_destino, i.destino_externo, i.mecanismo,
               fe.codigo fe_cod, fe.nombre fe_nom, count(*)::int n
        from integraciones i left join fuentes_externas fe on fe.id_fuente_ext=i.id_fuente_externa_origen
+       where left(upper(coalesce(i.nombre_enlace,'')),4) <> 'SEQ_'
        group by 1,2,3,4,5,6,7`);
     const bdRows = await prisma.$queryRawUnsafe<any[]>(
       `select b.id_bd, b.nombre_bd, s.nombre_servidor, m.desc_motor, a.desc_ambiente,
