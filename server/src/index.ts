@@ -302,7 +302,6 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(bdi|dbi|integ|consolid)' then 'Integración/consolidación'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(gcd|glcd|jira|www|sharepoint|wss|filenet|fnet|content|documental|micrograb|sgd)' then 'Documental/gestión de contenidos'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(dwh|datawarehouse|olap| bi |analit|explotaci|dashboard|reporter[íi]a|fnet|fnge|fnle)' then 'Analítica/reportería'
-                when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ '(harvest|aranda|pcsistel)' then 'Herramienta/soporte TI'
                 else 'Base de datos relacional' end)) as "Tipo de fuente",
         case when lower(m.desc_motor) like '%oracle%'
              then coalesce(nullif(trim(b.tipo_info_gest),''), nullif(trim(b.entidades_conceptuales),''), '')
