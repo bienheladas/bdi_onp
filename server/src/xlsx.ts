@@ -106,6 +106,14 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
     ws.getRow(r).height = txtH(val, two ? totw : totw * 0.9);
     r++;
   }
+  if (id === "ADI-01") {
+    const intro = "Qué es este inventario: registra las fuentes de información —documentos, inventarios, scripts, " +
+      "transcripciones de entrevistas y demás insumos— que LCP recopiló de la ONP o generó durante el servicio. A " +
+      "partir de ellas se construyó el repositorio del Documento Equivalente (modelo PostgreSQL de LCP), donde la " +
+      "información fue consolidada, actualizada y validada; ese repositorio es la fuente única de la que se derivan " +
+      "todos los artefactos (ADI-*).";
+    full(r++, intro, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(intro, totw), "top");
+  }
   const glosa = GLOSA_P1 + (withTraza ? "\n" + GLOSA_P2 : "");
   full(r++, "Metodología de consolidación y relevamiento", labF, STEEL, 16);
   full(r++, glosa, { name: "Calibri", size: 9 }, null, txtH(glosa, totw), "top");

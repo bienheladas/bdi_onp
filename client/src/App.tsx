@@ -529,9 +529,14 @@ function Artefactos() {
       </div>}
       {cur && <p className="muted" style={{ margin: "0 0 10px" }}>Generador: <code>{cur.generador}</code> · <span className="pill">{rows.length}</span> filas</p>}
       <p className="muted" style={{ margin: "0 0 10px", fontSize: 12, borderLeft: "3px solid #bbb", paddingLeft: 8 }}>
+        {viewId === "ADI-01" && <>
+          <b>Qué es este inventario:</b> registra las <b>fuentes de información</b> —documentos, inventarios, scripts, transcripciones de entrevistas y demás insumos— que LCP <b>recopiló de la ONP o generó</b> durante el servicio. A partir de ellas se construyó el <b>repositorio del Documento Equivalente</b> (modelo PostgreSQL de LCP), donde la información fue <b>consolidada, actualizada y validada</b>; ese repositorio es la <b>fuente única</b> de la que se derivan todos los artefactos (ADI-*).
+        </>}
         {["ADI-03", "ADI-04", "ADI-07"].includes(viewId) && <>
           <b>Alcance:</b> se consideran únicamente las fuentes de datos en ambiente de <b>Producción</b>, según lo delimitado en el <b>Acta de inicio del servicio</b> (Kick off, AR-001-DE_BDI, 16/09/2026 — <b>F-32</b>): «del total de BD mapeadas, 172 se encuentran en producción y son las que se tomarán en cuenta como parte del presente servicio». · </>}
-        <b>Procedencia:</b> todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son <b>calculados o derivados</b> de datos recopilados de las <b>fuentes institucionales</b> (F-01…F-32); ninguno es inferido sin sustento (ver matriz de trazabilidad).
+        {viewId !== "ADI-01" && <>
+          <b>Procedencia:</b> todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son <b>calculados o derivados</b> de datos recopilados de las <b>fuentes institucionales</b> (F-01…F-32); ninguno es inferido sin sustento (ver matriz de trazabilidad).
+        </>}
       </p>
       {!data ? <p className="muted">Cargando…</p> : viewId === "ADI-08" ? (() => {
         // Vista FORMULARIO (una ficha por riesgo): campos cortos en rejilla (etiqueta+dato),
