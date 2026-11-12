@@ -27,11 +27,10 @@ const GLOSA_P1 =
 const GLOSA_P2 =
   "Una vez integrada esa información, cada columna de este artefacto tiene un origen conocido y declarado. Algunas " +
   "columnas se toman directamente de una o varias fuentes; otras se obtienen mediante un cálculo o una derivación a " +
-  "partir de los datos ya integrados; y otras corresponden a un análisis o interpretación elaborada por LCP. En este " +
-  "último caso se explica la regla, fórmula o criterio que sustenta el valor, y el dato se marca con un asterisco (*) " +
-  "en la tabla para distinguirlo de la información tomada tal cual de la fuente. Para facilitar la revisión, el bloque " +
-  "«Trazabilidad de campos» que aparece a continuación indica, columna por columna, de qué fuente o fuentes proviene y " +
-  "cómo se obtuvo, de manera que cualquier dato pueda verificarse desde este artefacto hasta su origen.";
+  "partir de los datos ya integrados, en cuyo caso se explica la regla, fórmula o criterio que sustenta el valor. Para " +
+  "facilitar la revisión, el «Diccionario de campos» que aparece a continuación consolida, columna por columna, su " +
+  "descripción, la fuente o fuentes de la que proviene y la regla de cálculo con que se obtuvo, de manera que cualquier " +
+  "dato pueda verificarse desde este artefacto hasta su origen.";
 
 type Meta = { a2: string; a3: string; meta: Record<string, string> };
 const METALABELS = ["Tipo de artefacto", "Marco de referencia", "Responsable(s)",
@@ -47,7 +46,7 @@ const M: Record<string, Meta> = {
   "ADI-09": { a2: "ADI-09 · Modelo de Correspondencia Procesos, Dominios y Fuentes de Datos", a3: "Entregable 2 · Diagnostico del ecosistema de datos (AS-IS)   |   Actividad 9 · Correspondencia entre procesos, dominios y fuentes de datos", meta: { "Tipo de artefacto": "Catálogo / Matriz (tabla rellenable)", "Marco de referencia": "TOGAF: Data Entity/Business Function matrix — insumo del modelo conceptual", "Responsable(s)": "Arquitecto de Datos, Especialista BD Senior, Esp. Funcional, Analistas", "Insumo requerido": "Mapeo de actividades de negocio vs. repositorios (Anexo 01).", "Stakeholder del insumo": "Áreas Usuarias" } },
 };
 
-export type Traza = { columna_art: string; fuente_id: string | null; origen_pg: string; estado: string };
+export type Traza = { columna_art: string; fuente_id: string | null; origen_pg: string; estado: string; nota: string | null };
 
 const solid = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
 const thin = { style: "thin" as const, color: { argb: "FFD9D9D9" } };
@@ -69,7 +68,7 @@ export function newWorkbook() {
 }
 
 // banda + metadatos + metodología + trazabilidad. Devuelve la fila de inicio del contenido.
-function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Traza[], totw: number, withTraza = true): number {
+function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Traza[], totw: number, withTraza = true, columns: string[] = [], desc: Record<string, string> = {}): number {
   const md = M[id];
   const two = lastC === 2;
   const full = (r: number, text: string, font: any, fillArgb: string | null, h: number | null, va = "middle") => {
@@ -110,15 +109,25 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
   const glosa = GLOSA_P1 + (withTraza ? "\n" + GLOSA_P2 : "");
   full(r++, "Metodología de consolidación y relevamiento", labF, STEEL, 16);
   full(r++, glosa, { name: "Calibri", size: 9 }, null, txtH(glosa, totw), "top");
-  if (withTraza) {
-    full(r++, "Trazabilidad de campos  (campo  ←  fuente(s)  ·  regla / cálculo)", labF, STEEL, 16);
-    for (const t of traza) {
+  // Diccionario de campos: consolida, por columna, su descripción + fuente(s) + regla/cálculo
+  // (antes eran dos bloques separados: la trazabilidad arriba y la leyenda de columnas al final).
+  const titDic = withTraza
+    ? "Diccionario de campos  (campo  ·  descripción  ·  fuente(s)  ·  regla / cálculo)"
+    : "Diccionario de campos  (campo  ·  descripción)";
+  full(r++, titDic, labF, STEEL, 16);
+  const tz: Record<string, Traza> = {};
+  for (const t of traza) tz[t.columna_art] = t;
+  for (const c of columns) {
+    const d = desc[c] || "";
+    const t = withTraza ? tz[c] : undefined;
+    let txt = d ? `${c}:   ${d}` : c;
+    if (t) {
       const fu = (t.fuente_id == null || t.fuente_id === "" || t.fuente_id === "-") ? "—" : t.fuente_id;
-      const tag = EST_TAG[t.estado] || "";
-      const txt = `${t.columna_art}      ←   Fuentes: ${fu}   ·   Regla/cálculo: ${t.origen_pg}${tag}`;
-      full(r, txt, { name: "Calibri", size: 9 }, (r % 2 ? ZEBRA : null), txtH(txt, totw), "top");
-      r++;
+      const regla = (t.nota && t.nota.trim()) ? t.nota.trim() : t.origen_pg;
+      txt += `\n        Fuente(s): ${fu}   ·   Regla / cálculo: ${regla}`;
     }
+    full(r, txt, { name: "Calibri", size: 9 }, (r % 2 ? ZEBRA : null), txtH(txt, totw), "top");
+    r++;
   }
   r++; // separador
   return r;
@@ -153,7 +162,7 @@ export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], ro
   const widths = maxlen.map((ml) => Math.min(Math.max(ml + 2, 9), 60));
   widths.forEach((wd, i) => { ws.getColumn(i + 1).width = wd; });
   const totw = widths.reduce((a, b) => a + b, 0);
-  const hr = topSection(ws, ncol, id, traza, totw, id !== "ADI-01" && id !== "ADI-02");
+  const hr = topSection(ws, ncol, id, traza, totw, id !== "ADI-01" && id !== "ADI-02", columns, desc);
   // cabecera de tabla
   columns.forEach((c, i) => {
     const cell = ws.getCell(hr, i + 1);
@@ -179,7 +188,6 @@ export function addSheet(wb: ExcelJS.Workbook, id: string, columns: string[], ro
   // queda desplazable para poder llegar a los registros.
   ws.views = [{ state: "frozen", ySplit: 3 }];
   ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: hr + rows.length, column: ncol } };
-  addLegend(ws, ncol, hr + rows.length, columns, desc, totw);
 }
 
 function addFicha(ws: ExcelJS.Worksheet, columns: string[], rows: string[][], traza: Traza[], desc: Record<string, string>) {

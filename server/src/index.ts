@@ -690,7 +690,7 @@ async function artData(id: string): Promise<{ columns: string[]; rows: string[][
 }
 async function trazaOf(id: string): Promise<Traza[]> {
   return await prisma.$queryRawUnsafe<Traza[]>(
-    "select columna_art, fuente_id, origen_pg, estado from trazabilidad_artefacto where artefacto=$1 order by nro", id);
+    "select columna_art, fuente_id, origen_pg, estado, nota from trazabilidad_artefacto where artefacto=$1 order by nro", id);
 }
 async function descOf(id: string): Promise<Record<string, string>> {
   const rows = await prisma.$queryRawUnsafe<any[]>(
