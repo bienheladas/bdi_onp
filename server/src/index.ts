@@ -385,7 +385,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         fe.proposito as "Descripción general",
         '' as "Motor", '' as "Versión", '' as "Edición", '' as "Packs licenciables en uso",
         '' as "Ambiente", '' as "Servidor", '' as "Datacenter", '' as "Sistema operativo",
-        null::numeric as "Tamaño (GB)", null::int as "N° esquemas", null::int as "N° tablas", null::numeric as "Crecimiento (GB/mes)",
+        null::numeric as "Tamaño (GB)", null::int as "N° esquemas", null::int as "N° tablas", null::text as "Crecimiento (GB/mes)",
         'Fuente externa' as "Tipo de fuente",
         fe.entidades_negocio as "Tipo de información gestionada",
         '' as "Tipo(s) de proceso",
