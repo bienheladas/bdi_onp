@@ -110,8 +110,9 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
     const intro = "Qué es este inventario: registra las fuentes de información —documentos, inventarios, scripts, " +
       "transcripciones de entrevistas y demás insumos— que LCP recopiló de la ONP o generó durante el servicio. A " +
       "partir de ellas se construyó el repositorio del Documento Equivalente (modelo PostgreSQL de LCP), donde la " +
-      "información fue consolidada, actualizada y validada; ese repositorio es la fuente única de la que se derivan " +
-      "todos los artefactos (ADI-*).";
+      "información fue consolidada, actualizada y validada. Ese repositorio está a su vez registrado como fuente de " +
+      "información (F-29) —por constituir la síntesis AS-IS consolidada por LCP— y es la fuente única de la que se " +
+      "derivan todos los artefactos (ADI-*).";
     full(r++, intro, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(intro, totw), "top");
   }
   const glosa = GLOSA_P1 + (withTraza ? "\n" + GLOSA_P2 : "");
