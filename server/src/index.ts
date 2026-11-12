@@ -291,7 +291,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         s.nombre_servidor as "Servidor", s.ubicacion as "Datacenter",
         nullif(trim(coalesce(s.nombre_so,'')||' '||coalesce(s.version_so,'')),'') as "Sistema operativo",
         b.tamano_gb as "Tamaño (GB)", b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas",
-        b.crecimiento_gb as "Crecimiento (GB/mes)",
+        case when coalesce(b.crecimiento_gb_mes_medido, b.crecimiento_gb_mes_servidor) is not null
+                  then coalesce(b.crecimiento_gb_mes_medido, b.crecimiento_gb_mes_servidor)::text
+             when b.crecimiento_gb is null then null
+             when b.crecimiento_gb = 0 and coalesce(b.crecimiento_gb_raw,0) > 0 then '<0.01'
+             else b.crecimiento_gb::text end as "Crecimiento (GB/mes)",
         coalesce(nullif(trim(b.tipo_bd),''),
           (case when lower(b.nombre_bd) ~ '(sp2010|sp2013|sharepoint|wss_|_mms_|_ups_|ssapp|_rs_db|admincontent)' then 'Documental/gestión de contenidos'
                 when lower(b.nombre_bd||coalesce(b.desc_base_datos,'')) ~ 'aud' then 'Auditoría'
@@ -366,7 +370,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         nullif(trim(
           coalesce(nullif(trim(b.obs_uso_actual),''), nullif(trim(b.observaciones),''),'')
           || case when upper(coalesce(b.estado_bd,'')) like '%CANDIDATO%' and b.en_modelo_conceptual
-                  then ' [Para consulta con ONP] Fuente candidata a dar de baja incluida en el alcance porque su información debe migrarse a la BDI antes de su decomiso; inclusión sujeta a confirmación de ONP.'
+                  then ' Fuente candidata a dar de baja incluida en el alcance —confirmado con ONP (reunión 2026-11-10)— porque su información debe migrarse a la BDI antes de su decomiso; uso actual sustentado en las entrevistas de levantamiento (F-22).'
                   else '' end
         ),'') as "Observaciones de uso actual"
       from base_de_datos b
@@ -410,7 +414,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Motor y versión", "Edición", "Packs licenciables en uso", "Ambiente", "Charset",
       "Tamaño total (GB)", "Datos (GB)", "Índices (GB)", "N° esquemas", "N° tablas", "N° índices",
       "N° vistas", "N° procedimientos", "N° triggers", "Tabla más grande", "Tabla más grande (GB)",
-      "Crecimiento (GB/mes)", "Redo (GB/día)", "TDE", "Fecha volumetría",
+      "Crecimiento (GB/mes)", "Crecimiento mensual (%)", "Redo (GB/día)", "TDE", "Fecha volumetría",
       "Servidor", "Datafiles asignados (GB)", "Datafiles usados (GB)", "% uso datafiles",
       "Disco servidor asignado (GB)", "Disco servidor usado (GB)", "% uso disco servidor",
       "Relevancia para el expediente previsional", "Observaciones de almacenamiento / crecimiento"],
@@ -459,7 +463,12 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         b.nro_esquemas as "N° esquemas", b.nro_tablas as "N° tablas", b.nro_indices as "N° índices",
         b.nro_vistas as "N° vistas", b.nro_procedimientos as "N° procedimientos", b.nro_triggers as "N° triggers",
         b.tabla_mas_grande as "Tabla más grande", b.tabla_mas_grande_gb as "Tabla más grande (GB)",
-        b.crecimiento_gb as "Crecimiento (GB/mes)", b.redo_gb_dia as "Redo (GB/día)",
+        case when coalesce(b.crecimiento_gb_mes_medido, b.crecimiento_gb_mes_servidor) is not null
+                  then coalesce(b.crecimiento_gb_mes_medido, b.crecimiento_gb_mes_servidor)::text
+             when b.crecimiento_gb is null then null
+             when b.crecimiento_gb = 0 and coalesce(b.crecimiento_gb_raw,0) > 0 then '<0.01'
+             else b.crecimiento_gb::text end as "Crecimiento (GB/mes)",
+        coalesce(b.crecimiento_pct_mes_medido, b.crecimiento_pct_mes_servidor) as "Crecimiento mensual (%)", b.redo_gb_dia as "Redo (GB/día)",
         b.tde_estado as "TDE", b.fec_volumetria::text as "Fecha volumetría",
         s.nombre_servidor as "Servidor", b.tamano_asignado_gb as "Datafiles asignados (GB)",
         b.tamano_usado_gb as "Datafiles usados (GB)",
@@ -486,7 +495,12 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            ) z) as "Relevancia para el expediente previsional",
         coalesce(nullif(trim(
            (case when coalesce(b.tamano_asignado_gb,0)>0 and b.tamano_usado_gb*100.0/b.tamano_asignado_gb>=85 then 'Datafiles al '||round(b.tamano_usado_gb*100.0/b.tamano_asignado_gb)||'% de su asignado. ' else '' end)||
-           (case when coalesce(b.crecimiento_gb,0)>0 then 'Crecimiento estimado ~'||b.crecimiento_gb||' GB/mes. ' else '' end)||
+           (case when b.crecimiento_gb_mes_medido is not null
+                     then 'Crecimiento medido '||round(b.crecimiento_gb_mes_medido,1)||' GB/mes ('||round(b.crecimiento_pct_mes_medido,2)||'%/mes, serie FS '||b.crecimiento_meses_fs||' meses). '
+                 when b.crecimiento_gb_mes_servidor is not null
+                     then 'Crecimiento estimado '||round(b.crecimiento_gb_mes_servidor,1)||' GB/mes ('||round(b.crecimiento_pct_mes_servidor,2)||'%/mes, prorrateo del crecimiento del servidor F-27). '
+                 when coalesce(b.crecimiento_gb,0)>0 then 'Crecimiento estimado ~'||b.crecimiento_gb||' GB/mes (inventario F-14). '
+                 when b.crecimiento_gb=0 and coalesce(b.crecimiento_gb_raw,0)>0 then 'Crecimiento estimado <0.01 GB/mes (inventario F-14, insignificante). ' else '' end)||
            (case when coalesce(s.disco_asignado_gb,0)>0 and s.disco_utilizado_gb*100.0/s.disco_asignado_gb>=85 then 'Disco del servidor al '||round(s.disco_utilizado_gb*100.0/s.disco_asignado_gb)||'%. ' else '' end)
          ),''),'') as "Observaciones de almacenamiento / crecimiento"
       from base_de_datos b
@@ -603,7 +617,14 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce(an.fragmentacion,'') as "Fragmentación",
         coalesce(an.desalineamiento_siip,'') as "Desalineamiento vs. SIIP",
         coalesce(an.relevancia_asis,'') as "Relevancia p/ modelo AS-IS",
-        'Repositorio y aplicativo del Documento Equivalente de la BDI —modelo de datos y web de consulta— como síntesis del levantamiento AS-IS (F-29); el alineamiento conceptual se contrasta con el Modelo Conceptual del SIIP (F-26).' as "Evidencia"
+        (case when (select count(*) from dom_app ap where ap.id_proceso=pn.id_proceso) > 0
+           then 'Relevamiento de aplicaciones y su asociación a procesos (F-22): '
+                || (select count(distinct ap.id_aplicacion) from dom_app ap where ap.id_proceso=pn.id_proceso)::text
+                || ' aplicación(es) ['
+                || coalesce((select string_agg(distinct a.id_app, ', ') from dom_app ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso),'')
+                || '] y ' || (select count(distinct abx.id_bd) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso)::text
+                || ' fuente(s) de datos, catalogadas en el modelo del Documento Equivalente (F-29); contraste conceptual con el Modelo Conceptual del SIIP (F-26).'
+           else 'Mapa de Procesos ONP 2026 (Res. GG 000149-2026): el proceso está en el mapa oficial pero no tiene aplicación ni fuente de datos catalogada en el relevamiento (F-22).' end) as "Evidencia"
       from proceso_negocio pn
       join dominio_funcional df on df.id_dominio=pn.id_dominio
       join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso
@@ -613,12 +634,16 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
   },
   "ADI-08": {
     titulo: "Brechas, Riesgos y Restricciones del Ecosistema de Datos (en vivo)",
-    columns: ["ID", "Tipo", "Tema", "Severidad", "Descripción", "Elemento afectado",
+    columns: ["ID", "Tipo", "Tema", "Severidad", "Criterio de severidad", "Descripción", "Elemento afectado",
       "Evidencia / sustento", "Causa preliminar", "Impacto", "Riesgo para la implementación",
       "Recomendación inicial", "Relación con la BD Integrada", "Consideraciones de seguridad"],
     sql: `
       select id as "ID", coalesce(tipo,'') as "Tipo", coalesce(tema,'') as "Tema",
-        coalesce(severidad,'') as "Severidad", coalesce(descripcion,'') as "Descripción",
+        coalesce(severidad,'') as "Severidad",
+        case when impacto_nivel is not null and exposicion_nivel is not null
+             then 'Impacto '||impacto_nivel||' × Exposición '||exposicion_nivel
+                  || coalesce(' — '||nullif(trim(severidad_justificacion),''),'') else '' end as "Criterio de severidad",
+        coalesce(descripcion,'') as "Descripción",
         coalesce(elemento_afectado,'') as "Elemento afectado", coalesce(evidencia,'') as "Evidencia / sustento",
         coalesce(causa_preliminar,'') as "Causa preliminar", coalesce(impacto,'') as "Impacto",
         coalesce(riesgo_implementacion,'') as "Riesgo para la implementación",

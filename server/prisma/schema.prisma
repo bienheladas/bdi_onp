@@ -95,6 +95,11 @@ model base_de_datos {
   nro_esquemas                                             Int?
   nro_tablas                                               Int?
   crecimiento_gb                                           Decimal?               @db.Decimal(14, 2)
+  crecimiento_gb_mes_medido                                Decimal?               @db.Decimal(14, 2)
+  crecimiento_pct_mes_medido                               Decimal?               @db.Decimal(8, 3)
+  crecimiento_meses_fs                                     Int?
+  crecimiento_gb_mes_servidor                              Decimal?               @db.Decimal(14, 2)
+  crecimiento_pct_mes_servidor                             Decimal?               @db.Decimal(8, 3)
   estado_bd                                                String?
   gestor                                                   String?
   resp_funcional                                           String?
