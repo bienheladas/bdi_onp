@@ -225,7 +225,7 @@ export function addPortada(wb: ExcelJS.Workbook, ids: string[]) {
   full(2, "Documento Equivalente de la BDI — Artefactos del Diagnóstico AS-IS", { name: "Calibri", size: 15, bold: true, color: { argb: WHITE } }, BLUE, 30);
   full(3, "Entregable 2 · Diagnóstico del ecosistema de datos (AS-IS)", { name: "Calibri", size: 10, bold: true, color: { argb: NAVY } }, GRAY, 22);
   full(4, VERSION_VAL, { name: "Calibri", size: 9, italic: true }, null, 18);
-  const alcanceTxt = ids.some((id) => ["ADI-03", "ADI-04", "ADI-04-FD", "ADI-07"].includes(id))
+  const alcanceTxt = ids.some((id) => ["ADI-03", "ADI-04", "ADI-07"].includes(id))
     ? "Alcance: se consideran únicamente las fuentes de datos en ambiente de Producción, según lo delimitado en el Acta de inicio del servicio (Kick off, AR-001-DE_BDI, 16/09/2026 — F-32): «del total de BD mapeadas, 172 se encuentran en producción y son las que se tomarán en cuenta como parte del presente servicio». · "
     : "";
   full(5, alcanceTxt + "Procedencia: todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son calculados o derivados de datos recopilados de las fuentes institucionales (F-01…F-32); ninguno es inferido sin sustento (ver matriz de trazabilidad).", { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, alcanceTxt ? 52 : 30, "top");

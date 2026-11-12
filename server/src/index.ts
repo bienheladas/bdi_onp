@@ -509,8 +509,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd
     `,
   },
-  "ADI-04": {
-    titulo: "Matriz de Fuentes de Datos por Dominio Funcional (en vivo)",
+  "ADI-04-RES": {
+    titulo: "Resumen por Dominio Funcional (vista interna del explorador; no es entregable)",
     columns: ["Tipo de proceso", "Dominio funcional (normalizado)", "Procesos de negocio incluidos", "N° proc.",
       "N° apps", "Aplicaciones del dominio", "N° BD", "Fuentes de datos / BD del dominio", "Motores involucrados",
       "Tipo de información", "Uso principal", "Áreas usuarias", "Fuentes exclusivas del dominio",
@@ -544,8 +544,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       order by tp.id_tipo_proceso, df.desc_dominio
     `,
   },
-  "ADI-04-FD": {
-    titulo: "Matriz de Fuentes de Datos por Dominio Funcional — Fuente × Dominio (en vivo)",
+  "ADI-04": {
+    titulo: "Matriz de Fuentes de Datos por Dominio Funcional (en vivo)",
     columns: ["Dominio funcional", "Tipo de proceso", "Fuente de datos asociada", "Sistema / repositorio relacionado",
       "Tipo de información gestionada", "Área responsable", "Uso principal de la información",
       "Nivel de relación con el dominio", "Fuentes compartidas con otros dominios",
@@ -663,7 +663,7 @@ app.get("/api/artefacto/:id", async (req, res) => {
 });
 
 // ---------------- Exportación EN VIVO a Excel (sin archivos estáticos) ----------------
-const ART_IDS = ["ADI-01", "ADI-02", "ADI-03", "ADI-04", "ADI-04-FD", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
+const ART_IDS = ["ADI-01", "ADI-02", "ADI-03", "ADI-04", "ADI-05", "ADI-07", "ADI-08", "ADI-09"];
 const FCOLS: [string, string][] = [
   ["id_fuente", "N°"], ["fuente_documental", "Fuente documental revisada"],
   ["descripcion_proposito", "Descripción / propósito"], ["resumen", "Resumen / análisis del contenido"],
