@@ -144,6 +144,8 @@ model integraciones {
   nombre_enlace                                            String?        @db.VarChar(200)
   estado_enlace                                            String?        @db.VarChar(40)
   origen_dato                                              String?        @db.VarChar(20)
+  /// N-05: columna GENERADA en PG (SEQ_* sin extremos = orquestadora). Solo lectura: no enviarla en create/update.
+  es_orquestador                                           Boolean?
   fecha_creacion                                           DateTime       @default(now()) @db.Timestamptz(6)
   ip_creacion                                              String?        @db.VarChar(45)
   fecha_modificacion                                       DateTime?      @db.Timestamptz(6)

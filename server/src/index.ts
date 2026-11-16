@@ -261,7 +261,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join integracion_datastage d on d.id_integracion=i.id_integracion
       left join integracion_dblink dl on dl.id_integracion=i.id_integracion
       left join relevamiento_malla rm on upper(rm.malla)=upper(trim(split_part(d.malla_raiz,';',1)))
-      where left(upper(coalesce(i.nombre_enlace,'')),4) <> 'SEQ_'   -- excluye secuencias/mallas orquestadoras (no mueven datos; su agrupación vive en malla_raiz de los jobs hijos)
+      where not i.es_orquestador   -- N-05: excluye SOLO las secuencias SEQ_* sin extremos relevados (columna generada); las mallas OTI con origen/destino sí se muestran
       order by i.mecanismo, i.id_integracion
     `,
   },
@@ -327,14 +327,14 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce((select string_agg(distinct nullif(trim(ap.gestor_resp),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), nullif(trim(b.gestor),''), '') as "Gestor",
         coalesce((select string_agg(distinct nullif(trim(ap.nombre_lider_usuario),''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd), nullif(trim(b.resp_funcional),''), '') as "Responsable funcional",
         (select string_agg(distinct ap.id_app||' '||coalesce(ap.nombre_app,''),' | ') from aplicacion_basedatos abx join aplicacion ap on ap.id=abx.id_aplicacion where abx.id_bd=b.id_bd) as "Aplicaciones consumidoras",
-        (select count(*) from integraciones ix where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd)::int as "N° integ.",
+        (select count(*) from integraciones ix where (ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) and not ix.es_orquestador)::int as "N° integ.",
         (select string_agg(distinct case when ix.id_bd_origen=b.id_bd
             then coalesce(ix.mecanismo,'?')||' → '||coalesce(bd2.nombre_bd, ix.destino_externo,'?')
             else coalesce(ix.mecanismo,'?')||' ← '||coalesce(bo2.nombre_bd, nullif(trim(feo.proveedor||' – '||feo.codigo),' – '), ix.origen_externo,'?') end, E'\n')
           from integraciones ix left join base_de_datos bd2 on bd2.id_bd=ix.id_bd_destino
           left join base_de_datos bo2 on bo2.id_bd=ix.id_bd_origen
           left join fuentes_externas feo on feo.id_fuente_ext=ix.id_fuente_externa_origen
-          where ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) as "Integra con (BD / fuentes)",
+          where (ix.id_bd_origen=b.id_bd or ix.id_bd_destino=b.id_bd) and not ix.es_orquestador) as "Integra con (BD / fuentes)",
         (case when not (b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)) then 'Baja'
               when lower(coalesce(b.entidades_conceptuales,'')) ~ '(expediente|pensi|prestaci|aporte|asegurado|derecho|planilla)' then 'Alta'
               when exists(select 1 from aplicacion_basedatos ab join aplicacion aflt on aflt.id=ab.id_aplicacion and aflt.en_modelo_conceptual join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso join dominio_funcional df on df.id_dominio=pn.id_dominio join tipo_proceso tp on tp.id_tipo_proceso=df.id_tipo_proceso where ab.id_bd=b.id_bd and tp.desc_tipo_proceso ilike '%misional%') then 'Alta'
@@ -395,7 +395,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         fe.proveedor as "Gestor",
         '' as "Responsable funcional",
         '' as "Aplicaciones consumidoras",
-        (select count(*) from integraciones ix where ix.id_fuente_externa_origen=fe.id_fuente_ext)::int as "N° integ.",
+        (select count(*) from integraciones ix where ix.id_fuente_externa_origen=fe.id_fuente_ext and not ix.es_orquestador)::int as "N° integ.",
         fe.bd_destino_onp as "Integra con (BD / fuentes)",
         'Alta' as "Relevancia p/ trazabilidad",
         nullif('Confidencialidad: '||coalesce(fe.nivel_confidencialidad,''),'Confidencialidad: ') as "Restricciones / limitaciones",
@@ -772,7 +772,7 @@ app.get("/api/flujo", async (_req, res) => {
       `select i.origen_externo, i.id_bd_origen, i.id_bd_destino, i.destino_externo, i.mecanismo,
               fe.codigo fe_cod, fe.nombre fe_nom, count(*)::int n
        from integraciones i left join fuentes_externas fe on fe.id_fuente_ext=i.id_fuente_externa_origen
-       where left(upper(coalesce(i.nombre_enlace,'')),4) <> 'SEQ_'
+       where not i.es_orquestador
        group by 1,2,3,4,5,6,7`);
     const bdRows = await prisma.$queryRawUnsafe<any[]>(
       `select b.id_bd, b.nombre_bd, s.nombre_servidor, m.desc_motor, a.desc_ambiente,
@@ -952,7 +952,7 @@ app.get("/api/ecosistema", async (_req, res) => {
       procesos: await num("select count(*) n from proceso_negocio"),
       entidades: await num("select count(*) n from entidad_conceptual"),
       relaciones: await num("select count(*) n from relacion_conceptual"),
-      integraciones: await num("select count(*) n from integraciones"),
+      integraciones: await num("select count(*) n from integraciones where not es_orquestador"),
     };
 
     // 1) Sistemas (apps en alcance) con sus bases/dominios/procesos/entidades (en alcance)
@@ -1015,11 +1015,11 @@ app.get("/api/ecosistema", async (_req, res) => {
     const etl = (await raw(`
       select (count(*) filter (where id_bd_origen is null and coalesce(origen_externo,'')=''))::int orig,
              (count(*) filter (where id_bd_destino is null and coalesce(destino_externo,'')=''))::int dest
-      from integraciones where mecanismo='ETL DataStage'`))[0];
+      from integraciones where mecanismo='ETL DataStage' and not es_orquestador`))[0];
     const bases_baja = await raw(`
       select b.nombre_bd nombre, b.estado_bd estado,
         (select count(*)::int from aplicacion_basedatos ab where ab.id_bd=b.id_bd) n_apps,
-        (select count(*)::int from integraciones i where i.id_bd_origen=b.id_bd or i.id_bd_destino=b.id_bd) n_integ
+        (select count(*)::int from integraciones i where (i.id_bd_origen=b.id_bd or i.id_bd_destino=b.id_bd) and not i.es_orquestador) n_integ
       from base_de_datos b where upper(coalesce(b.estado_bd,'')) like '%BAJA%'
       order by n_integ desc, n_apps desc`);
 
