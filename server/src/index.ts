@@ -248,7 +248,14 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                      when not dl.es_publico then 'Enlace privado: acotado al esquema propietario en la BD origen'
                      else '' end)
              else '' end as "Limitaciones / restricciones",
-        case when i.mecanismo='ETL DataStage' then 'Bajo' else coalesce(dl.nivel_riesgo,'') end as "Riesgos generales",
+        -- OTI.UIT 2.8.4: riesgo inherente por mecanismo. DB Link = exposición/seguridad (nivel_riesgo, por privilegio);
+        -- ETL = control/administrabilidad: interno controlado = Bajo; con DEPENDENCIA EXTERNA (SUNAT/RENIEC/SBS/
+        -- Informix/EsSalud, fuera del control de la ONP) = Medio (opción A, decisión Omar 2026-11-16).
+        case when i.mecanismo='ETL DataStage' then
+               case when i.id_fuente_externa_origen is not null
+                      or upper(coalesce(i.origen_externo,'')||' '||coalesce(i.destino_externo,'')) ~ '(SUNAT|RENIEC|SBS|INFORMIX|ESSALUD)'
+                    then 'Medio' else 'Bajo' end
+             else coalesce(dl.nivel_riesgo,'') end as "Riesgos generales",
         case when i.mecanismo='DB Link' then
                'Enlace: '||coalesce(i.nombre_enlace,'')||'; Owner: '||coalesce(dl.owner,'')||'; Visibilidad: '||(case when dl.es_publico then 'Público' else 'Privado' end)||'; Usuario remoto: '||coalesce(dl.usuario_remoto,'')
              when i.mecanismo='ETL DataStage' then
