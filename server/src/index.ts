@@ -212,11 +212,12 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         md.desc_motor as "Motor destino",
         case when i.mecanismo='ETL DataStage' then 'Flujo de datos (ETL)'
              when i.mecanismo='DB Link' then
-               (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
+               coalesce(dl.tipo_acceso_verif,
+                 (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio ~ '(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)') then 'Lectura/Escritura'
                      when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio like 'SELECT%') then 'Lectura'
-                     else 'Lectura/Escritura' end)
+                     else 'Por determinar' end))
              else '' end as "Tipo de relación / dependencia",
         i.mecanismo || case when i.mecanismo='ETL DataStage' and nullif(trim(d.modo_carga),'') is not null then ' ('||d.modo_carga||')' else '' end as "Mecanismo de integración",
         coalesce((select string_agg(x.entidad, ', ' order by x.m desc) from
@@ -228,7 +229,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                   join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=coalesce(i.id_bd_origen,i.id_bd_destino)),'') as "Proceso / dominio / área",
         case when i.mecanismo='DB Link' then 'En línea'
              when i.mecanismo='ETL DataStage' then
-               coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), 'Incremental diario')
+               -- TDR act.5: "Frecuencia general del intercambio, cuando se encuentre disponible"; OTI.UIT 2.8.3:
+               -- no generalizar. Frecuencia real de la malla relevada (F-17); si no se relevó, en blanco (no se asume).
+               coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), '')
              else '' end as "Frecuencia",
         case when i.mecanismo='DB Link' then 'OTI (DBA)'
              when i.mecanismo='ETL DataStage' then
@@ -236,10 +239,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                || coalesce(' (operador: '||nullif(trim(coalesce(d.proveedor, d.responsable)),'')||')','')  -- tercero relevado como operador
              else '' end as "Responsable",
         case when i.mecanismo='DB Link' then
-               (case when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
+               (case when dl.tipo_acceso_verif='Lectura'
+                       or (exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio like 'SELECT%')
                       and not exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
-                                 and p.privilegio ~ '(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)')
+                                 and p.privilegio ~ '(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)'))
                      then 'Solo lectura: el enlace no habilita escritura en el destino'
                      when not dl.es_publico then 'Enlace privado: acotado al esquema propietario en la BD origen'
                      else '' end)
