@@ -741,15 +741,16 @@ app.get("/api/columnas_desc", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ---------------- Bitácora de subsanación (modificaciones al modelo) ----------------
-// Solo las subsanaciones del 2.º entregable que CREARON o CORRIGIERON información en
-// el modelo de datos. Se lee en vivo desde la tabla bitacora_subsanacion.
+// ---------------- Bitácora de subsanación ----------------
+// Subsanaciones del 2.º entregable por DOCUMENTO de observaciones (Informe 80 UE003 /
+// Informe 020 OTI.UIT): creaciones/correcciones al modelo, aclaraciones (sin cambio de
+// dato) y pendientes de gestión con ONP. Se lee en vivo desde la tabla bitacora_subsanacion.
 app.get("/api/bitacora", async (_req, res) => {
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
-      `select to_char(fecha,'YYYY-MM-DD') fecha, artefacto, obs_codigo, tipo_cambio,
+      `select to_char(fecha,'YYYY-MM-DD') fecha, coalesce(documento,'') documento, artefacto, obs_codigo, tipo_cambio,
               objeto, descripcion, fuente, estado
-       from bitacora_subsanacion order by artefacto, obs_codigo, id`);
+       from bitacora_subsanacion order by documento desc, artefacto, id`);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

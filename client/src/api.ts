@@ -9,7 +9,7 @@ export type Opt = { value: any; label: string };
 
 // Explorador "Ecosistema de Datos ONP" (live). Los campos de lista llegan como texto con '§'.
 export type BitacoraRow = {
-  fecha: string; artefacto: string; obs_codigo: string; tipo_cambio: string;
+  fecha: string; documento: string; artefacto: string; obs_codigo: string; tipo_cambio: string;
   objeto: string; descripcion: string; fuente: string | null; estado: string | null;
 };
 export type EcoData = {

@@ -85,38 +85,51 @@ export default function App() {
 function Bitacora() {
   const [rows, setRows] = useState<BitacoraRow[] | null>(null);
   const [err, setErr] = useState("");
+  const [doc, setDoc] = useState("");
   useEffect(() => { api.bitacora().then(setRows).catch((e: any) => setErr(e?.message || "error")); }, []);
   if (err) return <div style={{ padding: 24 }}><h2>Bitácora de subsanación</h2><p className="muted">No se pudo cargar: {err}. ¿La tabla <code>bitacora_subsanacion</code> ya está cargada?</p></div>;
   if (!rows) return <p className="muted" style={{ padding: 24 }}>Cargando…</p>;
-  const nCre = rows.filter((r) => r.tipo_cambio === "Creación").length;
-  const nCor = rows.filter((r) => r.tipo_cambio === "Corrección").length;
-  const arts = new Set(rows.map((r) => r.artefacto)).size;
-  const kpis: [any, string][] = [[rows.length, "cambios al modelo"], [nCre, "creación"], [nCor, "corrección"], [arts, "artefactos"]];
+  const docs = Array.from(new Set(rows.map((r) => r.documento).filter(Boolean)));
+  const vis = doc ? rows.filter((r) => r.documento === doc) : rows;
+  const cnt = (t: string) => vis.filter((r) => r.tipo_cambio === t).length;
+  const kpis: [any, string][] = [[vis.length, "registros"], [cnt("Creación"), "creación"], [cnt("Corrección"), "corrección"],
+    [cnt("Aclaración"), "aclaración"], [cnt("Gestión ONP"), "gestión ONP"], [new Set(vis.map((r) => r.artefacto)).size, "artefactos"]];
+  const tagTipo = (t: string) => t === "Creación" ? "tg-green" : t === "Corrección" ? "tg-blue" : t === "Aclaración" ? "tg-grey" : "tg-amber";
+  const tagEst = (e: string) => /subsan|aclar/i.test(e) ? "tg-green" : "tg-amber";
   return (
     <>
-      <div className="toolbar"><h2>Bitácora de subsanación · modificaciones al modelo de datos</h2></div>
+      <div className="toolbar">
+        <h2>Bitácora de subsanación · 2.º entregable</h2>
+        <select value={doc} onChange={(e) => setDoc(e.target.value)} title="Documento de observaciones">
+          <option value="">Todos los documentos</option>
+          {docs.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
       <p className="muted" style={{ margin: "0 0 10px" }}>
-        Subsanaciones del 2.º entregable (INFORME 80-2026) que <b>crearon o corrigieron información</b> en el modelo. Lectura en vivo desde PostgreSQL.
+        Subsanaciones identificadas por <b>documento de observaciones</b> (INFORME N.° 000080-2026-UE003.C1-ONP · INFORME N.° 000020-2026-OTI.UIT-JEAD-ONP):
+        <b> creación o corrección</b> de información en el modelo, <b>aclaraciones</b> (se responde sin cambiar el dato, verificado contra el modelo)
+        y pendientes de <b>gestión con ONP</b>. Lectura en vivo desde PostgreSQL.
       </p>
       <div className="kpis">{kpis.map(([n, l], i) => <div className="kpi" key={i}><div className="n">{n}</div><div className="l">{l}</div></div>)}</div>
       <table className="wrap">
         <thead><tr>
-          <th>Fecha</th><th>ADI</th><th>Obs.</th><th>Tipo de cambio</th><th>Objeto del modelo</th><th>Descripción</th><th>Fuente</th><th>Estado</th>
+          <th>Fecha</th><th>Documento</th><th>ADI</th><th>Obs.</th><th>Tipo</th><th>Objeto del modelo</th><th>Descripción</th><th>Fuente</th><th>Estado</th>
         </tr></thead>
         <tbody>
-          {rows.map((r, i) => (
+          {vis.map((r, i) => (
             <tr key={i}>
               <td>{r.fecha}</td>
+              <td style={{ whiteSpace: "nowrap" }}>{r.documento}</td>
               <td>{r.artefacto}</td>
               <td>{r.obs_codigo}</td>
-              <td><span className={"tag " + (r.tipo_cambio === "Creación" ? "tg-green" : "tg-blue")}>{r.tipo_cambio}</span></td>
+              <td><span className={"tag " + tagTipo(r.tipo_cambio)}>{r.tipo_cambio}</span></td>
               <td><code>{r.objeto}</code></td>
               <td>{r.descripcion}</td>
               <td>{r.fuente}</td>
-              <td><span className={"tag " + (/subsan/i.test(r.estado || "") ? "tg-green" : "tg-amber")}>{r.estado}</span></td>
+              <td><span className={"tag " + tagEst(r.estado || "")}>{r.estado}</span></td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={8} className="muted">Sin modificaciones registradas aún.</td></tr>}
+          {vis.length === 0 && <tr><td colSpan={9} className="muted">Sin registros.</td></tr>}
         </tbody>
       </table>
     </>
