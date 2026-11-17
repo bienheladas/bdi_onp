@@ -520,6 +520,15 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
       left join servidor s on s.id_servidor=b.id_servidor
+      -- OTI.UIT 2.10.1: ADI-07 NO consigna las BD que figuran 'De baja' en ADI-03 (misma regla de Estado que ADI-03:
+      -- estado_bd; si falta, estado de sus apps; si no, Operativo por volumetría en vivo). Candidatas a baja se mantienen.
+      where coalesce(nullif(trim(b.estado_bd),''),
+              (select case when bool_or(upper(ax.estado_app) like '%OPERATIV%') then 'Operativo'
+                           when bool_or(upper(ax.estado_app) like '%ANALISIS%') then 'En análisis'
+                           when bool_or(upper(ax.estado_app) like '%CANDIDATO%') then 'Candidato a dar de baja'
+                           when count(*)>0 then 'De baja' else null end
+               from aplicacion_basedatos abx join aplicacion ax on ax.id=abx.id_aplicacion where abx.id_bd=b.id_bd),
+              case when b.fec_volumetria is not null then 'Operativo' end, '') <> 'De baja'
       order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd
     `,
   },
