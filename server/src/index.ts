@@ -509,9 +509,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         coalesce(nullif(trim(
            (case when coalesce(b.tamano_asignado_gb,0)>0 and b.tamano_usado_gb*100.0/b.tamano_asignado_gb>=85 then 'Datafiles al '||round(b.tamano_usado_gb*100.0/b.tamano_asignado_gb)||'% de su asignado. ' else '' end)||
            (case when b.crecimiento_gb_mes_medido is not null
-                     then 'Crecimiento medido '||round(b.crecimiento_gb_mes_medido,1)||' GB/mes ('||round(b.crecimiento_pct_mes_medido,2)||'%/mes, serie FS '||b.crecimiento_meses_fs||' meses). '
+                     then 'Crecimiento medido '||round(b.crecimiento_gb_mes_medido,1)||' GB/mes ('||round(b.crecimiento_pct_mes_medido,2)||'%/mes, serie histórica de filesystem F-33, '||b.crecimiento_meses_fs||' meses). '
                  when b.crecimiento_gb_mes_servidor is not null
-                     then 'Crecimiento estimado '||round(b.crecimiento_gb_mes_servidor,1)||' GB/mes ('||round(b.crecimiento_pct_mes_servidor,2)||'%/mes, prorrateo del crecimiento del servidor F-27). '
+                     then 'Crecimiento estimado '||round(b.crecimiento_gb_mes_servidor,1)||' GB/mes ('||round(b.crecimiento_pct_mes_servidor,2)||'%/mes, prorrateo del crecimiento del servidor según histórico de filesystem F-33). '
                  when coalesce(b.crecimiento_gb,0)>0 then 'Crecimiento estimado ~'||b.crecimiento_gb||' GB/mes (inventario F-14). '
                  when b.crecimiento_gb=0 and coalesce(b.crecimiento_gb_raw,0)>0 then 'Crecimiento estimado <0.01 GB/mes (inventario F-14, insignificante). ' else '' end)||
            (case when coalesce(s.disco_asignado_gb,0)>0 and s.disco_utilizado_gb*100.0/s.disco_asignado_gb>=85 then 'Disco del servidor al '||round(s.disco_utilizado_gb*100.0/s.disco_asignado_gb)||'%. ' else '' end)
