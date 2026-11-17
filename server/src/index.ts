@@ -198,7 +198,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
     titulo: "Mapa de Relaciones e Integraciones entre Fuentes de Datos (en vivo)",
     columns: ["N°", "Fuente origen", "Motor origen", "Fuente destino / consumidora", "Motor destino",
       "Tipo de relación / dependencia", "Mecanismo de integración", "Información intercambiada",
-      "Proceso / dominio / área", "Frecuencia", "Responsable", "Limitaciones / restricciones",
+      "Proceso / dominio / área", "Frecuencia", "Responsable técnico / operativo", "Responsable funcional", "Limitaciones / restricciones",
       "Riesgos generales", "Detalle (job / DB link)", "Secuencia(s) padre (agrupador)", "Malla (OTI, agrupador)"],
     sql: `
       select
@@ -237,7 +237,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
              when i.mecanismo='ETL DataStage' then
                coalesce(nullif(trim(rm.responsable_oti),''),'OTI')   -- responsable ONP (OTI opera la plataforma DataStage)
                || coalesce(' (operador: '||nullif(trim(coalesce(d.proveedor, d.responsable)),'')||')','')  -- tercero relevado como operador
-             else '' end as "Responsable",
+             else '' end as "Responsable técnico / operativo",
+        -- OTI.UIT 2.8.5: responsable FUNCIONAL solo con regla clara (R1..R4, deriva_responsable_funcional.py); blanco = no deducible
+        coalesce(i.responsable_funcional,'') as "Responsable funcional",
         case when i.mecanismo='DB Link' then
                (case when dl.tipo_acceso_verif='Lectura'
                        or (exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
