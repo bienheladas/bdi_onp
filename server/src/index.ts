@@ -233,7 +233,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                -- no generalizar. Frecuencia real de la malla relevada (F-17); si no se relevó, en blanco (no se asume).
                coalesce(nullif(trim(rm.periodicidad),'') || coalesce(' '||nullif(trim(rm.hora),''),''), '')
              else '' end as "Frecuencia",
-        case when i.mecanismo='DB Link' then 'OTI (DBA)'
+        -- OTI.UIT 2.8.5: DB Link = responsable FUNCIONAL del modelo (integraciones.responsable_funcional, reglas R1/R2:
+        -- owner→esquema→aplicación F-22, o BD origen con una sola aplicación); en blanco si no es deducible (consulta ONP).
+        -- Antes: 'OTI (DBA)' fijo (la administración técnica de la BD no es la responsabilidad de la integración).
+        case when i.mecanismo='DB Link' then coalesce(i.responsable_funcional,'')
              when i.mecanismo='ETL DataStage' then
                coalesce(nullif(trim(rm.responsable_oti),''),'OTI')   -- responsable ONP (OTI opera la plataforma DataStage)
                || coalesce(' (operador: '||nullif(trim(coalesce(d.proveedor, d.responsable)),'')||')','')  -- tercero relevado como operador
