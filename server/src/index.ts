@@ -619,18 +619,26 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "N° fuentes", "Fuentes de datos / BD", "Entidades conceptuales (detectadas)", "Tipo de información",
       "Cobertura del dominio", "Vacíos", "Solapamientos / redundancias", "Fragmentación",
       "Desalineamiento vs. SIIP", "Relevancia p/ modelo AS-IS", "Evidencia"],
+    // OTI.UIT 2.12.1: (a) se excluyen las aplicaciones De Baja; (b) BD no operativas marcadas en la celda;
+    // (c) procesos sin aplicación/fuente con texto explícito (no en blanco).
     sql: `
       with dom_app as (select ap.id_proceso, ap.id_aplicacion from aplicacion_proceso ap
-                       join aplicacion a on a.id=ap.id_aplicacion where a.en_modelo_conceptual)
+                       join aplicacion a on a.id=ap.id_aplicacion
+                       where a.en_modelo_conceptual and coalesce(a.estado_app,'') not ilike 'de baja')
       select
         (row_number() over (order by tp.id_tipo_proceso, df.desc_dominio, pn.desc_proceso))::int as "N°",
         tp.desc_tipo_proceso as "Tipo de proceso",
         df.desc_dominio as "Dominio funcional",
         pn.desc_proceso as "Proceso de negocio",
         (select count(distinct ap.id_aplicacion) from dom_app ap where ap.id_proceso=pn.id_proceso)::int as "N° apps",
-        (select string_agg(distinct a.id_app || coalesce(' ('||nullif(trim(a.abreviatura_app),'')||')',''), ', ') from dom_app ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso) as "Aplicaciones",
+        coalesce((select string_agg(distinct a.id_app || coalesce(' ('||nullif(trim(a.abreviatura_app),'')||')',''), ', ') from dom_app ap join aplicacion a on a.id=ap.id_aplicacion where ap.id_proceso=pn.id_proceso),
+          'Sin aplicación catalogada: el proceso figura en el Mapa de Procesos ONP 2026, pero ninguna aplicación del relevamiento (F-22) lo soporta.') as "Aplicaciones",
         (select count(distinct abx.id_bd) from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso)::int as "N° fuentes",
-        (select string_agg(distinct b.nombre_bd,' ') from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso) as "Fuentes de datos / BD",
+        coalesce((select string_agg(distinct b.nombre_bd
+                   || case when b.estado_bd ilike 'candidat%' then ' (candidata a baja)'
+                           when coalesce(b.estado_bd,'Operativo') <> 'Operativo' then ' ('||lower(b.estado_bd)||')' else '' end, ', ')
+                  from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso),
+          'Sin fuente de datos catalogada: ninguna aplicación del relevamiento (F-22) soporta este proceso.') as "Fuentes de datos / BD",
         (select string_agg(z.entidad, ', ' order by z.tot desc, z.entidad) from (select fe.entidad, sum(fe.nro_menciones) tot from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso group by fe.entidad) z) as "Entidades conceptuales (detectadas)",
         (select string_agg(z.entidad, ', ' order by z.tot desc, z.entidad) from (select fe.entidad, sum(fe.nro_menciones) tot from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso group by fe.entidad) z) as "Tipo de información",
         coalesce(an.cobertura,'') as "Cobertura del dominio",
