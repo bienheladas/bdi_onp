@@ -92,11 +92,14 @@ const nodes=new vis.DataSet(NODES.map(n=>({id:n.id,label:n.label,shape:'box',
 // grosor acotado (max 6) y puntas chicas: edges muy anchos generaban puntas
 // enormes que no llegaban al cuadro. arrowStrikethrough:false evita que la linea
 // gruesa tape/empuje la punta.
-const allEdges=EDGES.map((e,i)=>({id:i,from:e.from,to:e.to,value:e.value,
+const allEdges=EDGES.map((e,i)=>{const o={id:i,from:e.from,to:e.to,
   arrows:{to:{enabled:e.arrowTo,scaleFactor:0.5},from:{enabled:e.arrowFrom,scaleFactor:0.5}},
   arrowStrikethrough:false, dashes:e.dashes,
   color:{color:e.color,highlight:'#f0c674',hover:'#f0c674',opacity:0.85},
-  smooth:false,scaling:{min:1,max:6},_tip:e.tip,_w:e.value}));
+  smooth:false,_tip:e.tip,_w:e.value};
+  // Réplicas: línea sólida de ancho fijo (8px), más que el tope escalado (6) de los hubs.
+  if(e.replica){o.width=8;}else{o.value=e.value;o.scaling={min:1,max:6};}
+  return o;});
 const edges=new vis.DataSet(allEdges);
 const net=new vis.Network(document.getElementById('net'),{nodes,edges},{
   layout:{randomSeed:7,improvedLayout:true},   // layout DETERMINISTA (mismo cada vez)

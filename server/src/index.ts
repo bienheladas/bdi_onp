@@ -936,7 +936,7 @@ app.get("/api/flujo", async (_req, res) => {
       let col: string, dash: boolean, mlab: string;
       // La réplica DOMINA: si el par tiene Replicación, se pinta como tal aunque coexista
       // un DB Link entre las mismas BD (el desglose por mecanismo queda en el tooltip).
-      if (mecset.has("Replicación")) { col = MEC_COLOR["Replicación"]; dash = true; mlab = mecset.size === 1 ? "Replicación (réplica de lectura)" : "Replicación + " + [...mecset].filter((m) => m !== "Replicación").join(" + "); }
+      if (mecset.has("Replicación")) { col = MEC_COLOR["Replicación"]; dash = false; mlab = mecset.size === 1 ? "Replicación (réplica de lectura)" : "Replicación + " + [...mecset].filter((m) => m !== "Replicación").join(" + "); }
       else if (mecset.size === 1 && mecset.has("ETL DataStage")) { col = MEC_COLOR["ETL DataStage"]; dash = false; mlab = "Flujo DataStage"; }
       else if (mecset.size === 1 && mecset.has("DB Link")) { col = MEC_COLOR["DB Link"]; dash = true; mlab = "Flujo DB Link"; }
       else if (mecset.size === 1 && mecset.has("Servicio web (PIDE)")) { col = MEC_COLOR["Servicio web (PIDE)"]; dash = false; mlab = "Servicio web (PIDE)"; }
@@ -946,7 +946,7 @@ app.get("/api/flujo", async (_req, res) => {
       if (bwd) lines.push(`${nodes.get(b).label} → ${nodes.get(a).label}: ${bwd.total} (` + Object.entries(bwd.mec).map(([k2, v]) => `${k2}:${v}`).join(", ") + ")");
       const bidir = !!fwd && !!bwd;
       const tip = `<b>${mlab}${bidir ? " (bidireccional)" : ""}</b><br>` + lines.join("<br>");
-      edges.push({ from: a, to: b, value: total, arrowTo: !!fwd, arrowFrom: !!bwd, color: col, dashes: dash, tip });
+      edges.push({ from: a, to: b, value: total, arrowTo: !!fwd, arrowFrom: !!bwd, color: col, dashes: dash, tip, replica: mecset.has("Replicación") });
     }
     res.json({ nodes: [...nodes.values()], edges, maxw, domains: allDomains });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
