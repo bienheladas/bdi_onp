@@ -374,7 +374,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                 and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion
                            where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)
              then 'Sí'
-           when coalesce(b.clase_contenido,'') in ('Metadata de enlatado','Infraestructura','Auditoría','Prueba de migración')
+           when coalesce(b.clase_contenido,'') in ('Metadata de enlatado','Infraestructura','Auditoría','Prueba de migración',
+                'Repositorio documental (SharePoint)','Repositorio de motor de producto (IBM BPM)',
+                'Repositorio de configuración/servicio de producto (SharePoint)','Repositorio de herramienta de soporte TI',
+                'Repositorio analítico / reportería')
              then 'No — '||b.clase_contenido
            when not exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd)
              then 'No — sin aplicación vigente'
