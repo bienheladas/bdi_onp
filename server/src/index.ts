@@ -934,9 +934,11 @@ app.get("/api/flujo", async (_req, res) => {
       const total = (fwd ? fwd.total : 0) + (bwd ? bwd.total : 0); maxw = Math.max(maxw, total);
       const mecset = new Set<string>(); for (const dd of [fwd, bwd]) if (dd) Object.keys(dd.mec).forEach((m) => mecset.add(m));
       let col: string, dash: boolean, mlab: string;
-      if (mecset.size === 1 && mecset.has("ETL DataStage")) { col = MEC_COLOR["ETL DataStage"]; dash = false; mlab = "Flujo DataStage"; }
+      // La réplica DOMINA: si el par tiene Replicación, se pinta como tal aunque coexista
+      // un DB Link entre las mismas BD (el desglose por mecanismo queda en el tooltip).
+      if (mecset.has("Replicación")) { col = MEC_COLOR["Replicación"]; dash = true; mlab = mecset.size === 1 ? "Replicación (réplica de lectura)" : "Replicación + " + [...mecset].filter((m) => m !== "Replicación").join(" + "); }
+      else if (mecset.size === 1 && mecset.has("ETL DataStage")) { col = MEC_COLOR["ETL DataStage"]; dash = false; mlab = "Flujo DataStage"; }
       else if (mecset.size === 1 && mecset.has("DB Link")) { col = MEC_COLOR["DB Link"]; dash = true; mlab = "Flujo DB Link"; }
-      else if (mecset.size === 1 && mecset.has("Replicación")) { col = MEC_COLOR["Replicación"]; dash = true; mlab = "Replicación (réplica de lectura)"; }
       else if (mecset.size === 1 && mecset.has("Servicio web (PIDE)")) { col = MEC_COLOR["Servicio web (PIDE)"]; dash = false; mlab = "Servicio web (PIDE)"; }
       else { col = MEC_COLOR["mixto"]; dash = false; mlab = "Mixto (" + [...mecset].join(" + ") + ")"; }
       const lines: string[] = [];
