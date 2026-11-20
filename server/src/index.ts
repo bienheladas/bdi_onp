@@ -218,16 +218,20 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                      when exists(select 1 from privilegio_sistema p where p.id_bd=i.id_bd_destino and upper(p.grantee)=upper(dl.usuario_remoto)
                                  and p.privilegio like 'SELECT%') then 'Lectura'
                      else 'Por determinar' end))
+             when i.mecanismo='Replicación' then 'Replicación (réplica de lectura)'
+             when i.mecanismo='Servicio web (PIDE)' then 'Consumo de servicio web (interoperabilidad)'
              else '' end as "Tipo de relación / dependencia",
         i.mecanismo || case when i.mecanismo='ETL DataStage' and nullif(trim(d.modo_carga),'') is not null then ' ('||d.modo_carga||')' else '' end as "Mecanismo de integración",
-        coalesce((select string_agg(x.entidad, ', ' order by x.m desc) from
+        case when i.mecanismo='Servicio web (PIDE)' then 'Datos de identidad, antecedentes y registrales (consulta a demanda)'
+        else coalesce((select string_agg(x.entidad, ', ' order by x.m desc) from
             (select fe.entidad, sum(fe.nro_menciones) m from fuente_entidad fe
              join base_de_datos b on b.id_bd=fe.id_bd and b.en_modelo_conceptual
-             where fe.id_bd in (i.id_bd_origen, i.id_bd_destino) group by fe.entidad order by m desc limit 5) x),'') as "Información intercambiada",
+             where fe.id_bd in (i.id_bd_origen, i.id_bd_destino) group by fe.entidad order by m desc limit 5) x),'') end as "Información intercambiada",
         coalesce((select string_agg(distinct df.desc_dominio,' | ') from aplicacion_basedatos ab
                   join aplicacion_proceso ap on ap.id_aplicacion=ab.id_aplicacion join proceso_negocio pn on pn.id_proceso=ap.id_proceso
                   join dominio_funcional df on df.id_dominio=pn.id_dominio where ab.id_bd=coalesce(i.id_bd_origen,i.id_bd_destino)),'') as "Proceso / dominio / área",
         case when i.mecanismo='DB Link' then 'En línea'
+             when i.mecanismo='Servicio web (PIDE)' then 'En línea (a demanda)'
              when i.mecanismo='ETL DataStage' then
                -- TDR act.5: "Frecuencia general del intercambio, cuando se encuentre disponible"; OTI.UIT 2.8.3:
                -- no generalizar. Frecuencia real de la malla relevada (F-17); si no se relevó, en blanco (no se asume).
@@ -237,6 +241,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         -- owner→esquema→aplicación F-22, o BD origen con una sola aplicación); en blanco si no es deducible (consulta ONP).
         -- Antes: 'OTI (DBA)' fijo (la administración técnica de la BD no es la responsabilidad de la integración).
         case when i.mecanismo='DB Link' then coalesce(i.responsable_funcional,'')
+             when i.mecanismo in ('Replicación','Servicio web (PIDE)') then coalesce(i.responsable_funcional,'')
              when i.mecanismo='ETL DataStage' then
                coalesce(nullif(trim(rm.responsable_oti),''),'OTI')   -- responsable ONP (OTI opera la plataforma DataStage)
                || coalesce(' (operador: '||nullif(trim(coalesce(d.proveedor, d.responsable)),'')||')','')  -- tercero relevado como operador
@@ -263,6 +268,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                'Enlace: '||coalesce(i.nombre_enlace,'')||'; Owner: '||coalesce(dl.owner,'')||'; Visibilidad: '||(case when dl.es_publico then 'Público' else 'Privado' end)||'; Usuario remoto: '||coalesce(dl.usuario_remoto,'')
              when i.mecanismo='ETL DataStage' then
                'Job: '||coalesce(i.nombre_enlace,'')||coalesce('; Tabla(s) destino: '||nullif(trim(d.tabla_destino),''),'')||coalesce('; Modo: '||nullif(trim(d.modo_carga),''),'')||coalesce('; Objetivo: '||nullif(trim(d.objetivo),''),'')
+             when i.mecanismo in ('Replicación','Servicio web (PIDE)') then coalesce(i.nombre_enlace,'')
              else '' end as "Detalle (job / DB link)",
         coalesce(d.job_padre,'') as "Secuencia(s) padre (agrupador)",
         coalesce(d.malla_raiz,'') as "Malla (OTI, agrupador)"
