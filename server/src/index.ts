@@ -899,6 +899,7 @@ app.get("/api/flujo", async (_req, res) => {
       if (nodeId.startsWith("ext:")) {
         const label = nodeId.slice(4);
         if (SINK.has(label)) nodes.set(nodeId, { id: nodeId, label, color: "#9E9E9E", group: "sink", domains: [], tip: `<b>${label}</b><br>Destino no-BD (salida DataStage)` });
+        else if (/^PIDE/i.test(label)) nodes.set(nodeId, { id: nodeId, label, color: "#0E7490", group: "pide", domains: [], tip: `<b>${label}</b><br>Servicio de interoperabilidad del Estado (PIDE) consumido por la ONP` });
         else nodes.set(nodeId, { id: nodeId, label, color: "#E8A33D", group: "externa", domains: [], tip: `<b>${label}</b><br>Fuente externa / destino no mapeado` });
       } else {
         const idb = parseInt(nodeId.slice(3), 10); const r = bd.get(idb); const tipos = tiposBd.get(idb) || {};
@@ -920,7 +921,7 @@ app.get("/api/flujo", async (_req, res) => {
     };
     for (const k of agg.keys()) { const [s, d] = k.split(""); addNode(s); addNode(d); }
 
-    const MEC_COLOR: Record<string, string> = { "ETL DataStage": "#38A169", "DB Link": "#9F7AEA", "mixto": "#A0AEC0" };
+    const MEC_COLOR: Record<string, string> = { "ETL DataStage": "#38A169", "DB Link": "#9F7AEA", "Replicación": "#D69E2E", "Servicio web (PIDE)": "#0E7490", "mixto": "#A0AEC0" };
     const pairs = new Map<string, Record<string, { total: number; mec: Record<string, number> }>>();
     for (const [k, info] of agg.entries()) {
       const [s, d] = k.split(""); const pk = [s, d].sort().join("");
@@ -935,7 +936,9 @@ app.get("/api/flujo", async (_req, res) => {
       let col: string, dash: boolean, mlab: string;
       if (mecset.size === 1 && mecset.has("ETL DataStage")) { col = MEC_COLOR["ETL DataStage"]; dash = false; mlab = "Flujo DataStage"; }
       else if (mecset.size === 1 && mecset.has("DB Link")) { col = MEC_COLOR["DB Link"]; dash = true; mlab = "Flujo DB Link"; }
-      else { col = MEC_COLOR["mixto"]; dash = false; mlab = "DataStage + DB Link"; }
+      else if (mecset.size === 1 && mecset.has("Replicación")) { col = MEC_COLOR["Replicación"]; dash = true; mlab = "Replicación (réplica de lectura)"; }
+      else if (mecset.size === 1 && mecset.has("Servicio web (PIDE)")) { col = MEC_COLOR["Servicio web (PIDE)"]; dash = false; mlab = "Servicio web (PIDE)"; }
+      else { col = MEC_COLOR["mixto"]; dash = false; mlab = "Mixto (" + [...mecset].join(" + ") + ")"; }
       const lines: string[] = [];
       if (fwd) lines.push(`${nodes.get(a).label} → ${nodes.get(b).label}: ${fwd.total} (` + Object.entries(fwd.mec).map(([k2, v]) => `${k2}:${v}`).join(", ") + ")");
       if (bwd) lines.push(`${nodes.get(b).label} → ${nodes.get(a).label}: ${bwd.total} (` + Object.entries(bwd.mec).map(([k2, v]) => `${k2}:${v}`).join(", ") + ")");
