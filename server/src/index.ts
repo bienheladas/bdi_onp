@@ -648,8 +648,26 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                            when coalesce(b.estado_bd,'Operativo') <> 'Operativo' then ' ('||lower(b.estado_bd)||')' else '' end, ', ')
                   from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual where ap.id_proceso=pn.id_proceso),
           'Sin fuente de datos catalogada: ninguna aplicación del relevamiento (F-22) soporta este proceso.') as "Fuentes de datos / BD",
-        (select string_agg(z.entidad, ', ' order by z.tot desc, z.entidad) from (select fe.entidad, sum(fe.nro_menciones) tot from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso group by fe.entidad) z) as "Entidades conceptuales (detectadas)",
-        (select string_agg(z.entidad, ', ' order by z.tot desc, z.entidad) from (select fe.entidad, sum(fe.nro_menciones) tot from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso group by fe.entidad) z) as "Tipo de información",
+        -- OTI-08: atribución por ESQUEMA (solo los esquemas que usan las apps del proceso, vía esquema_aplicacion
+        -- + fuente_entidad_esquema, con regla transversal); fallback a nivel-BD si no hay mapeo de esquema.
+        coalesce(nullif((select string_agg(entidad, ', ' order by tot desc, entidad) from (
+             select g.entidad, g.tot, max(g.tot) filter (where g.entidad not in ('Usuario/Seguridad','Documento','Notificación')) over () mc
+             from (select fes.entidad, sum(fes.nro_menciones) tot from dom_app ap
+                   join esquema_aplicacion ea on ea.id_aplicacion=ap.id_aplicacion
+                   join base_de_datos b on b.id_bd=ea.id_bd and b.en_modelo_conceptual
+                   join fuente_entidad_esquema fes on fes.id_bd=ea.id_bd and fes.id_esquema=ea.id_esquema
+                   where ap.id_proceso=pn.id_proceso group by fes.entidad) g) h
+             where entidad not in ('Usuario/Seguridad','Documento','Notificación') or tot >= 2*coalesce(mc,0)),''),
+          (select string_agg(z.entidad, ', ' order by z.tot desc, z.entidad) from (select fe.entidad, sum(fe.nro_menciones) tot from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso group by fe.entidad) z)) as "Entidades conceptuales (detectadas)",
+        coalesce(nullif((select string_agg(entidad, ', ' order by tot desc, entidad) from (
+             select g.entidad, g.tot, max(g.tot) filter (where g.entidad not in ('Usuario/Seguridad','Documento','Notificación')) over () mc
+             from (select fes.entidad, sum(fes.nro_menciones) tot from dom_app ap
+                   join esquema_aplicacion ea on ea.id_aplicacion=ap.id_aplicacion
+                   join base_de_datos b on b.id_bd=ea.id_bd and b.en_modelo_conceptual
+                   join fuente_entidad_esquema fes on fes.id_bd=ea.id_bd and fes.id_esquema=ea.id_esquema
+                   where ap.id_proceso=pn.id_proceso group by fes.entidad) g) h
+             where entidad not in ('Usuario/Seguridad','Documento','Notificación') or tot >= 2*coalesce(mc,0)),''),
+          (select string_agg(z.entidad, ', ' order by z.tot desc, z.entidad) from (select fe.entidad, sum(fe.nro_menciones) tot from dom_app ap join aplicacion_basedatos abx on abx.id_aplicacion=ap.id_aplicacion join base_de_datos b on b.id_bd=abx.id_bd and b.en_modelo_conceptual join fuente_entidad fe on fe.id_bd=abx.id_bd where ap.id_proceso=pn.id_proceso group by fe.entidad) z)) as "Tipo de información",
         coalesce(an.cobertura,'') as "Cobertura del dominio",
         coalesce(an.vacios,'') as "Vacíos",
         coalesce(an.solapamientos,'') as "Solapamientos / redundancias",
