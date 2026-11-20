@@ -146,6 +146,8 @@ model integraciones {
   origen_dato                                              String?        @db.VarChar(20)
   /// N-05: columna GENERADA en PG (SEQ_* sin extremos = orquestadora). Solo lectura: no enviarla en create/update.
   es_orquestador                                           Boolean?
+  /// OTI-07: columna GENERADA en PG (origen=destino = transformación intra-BD, no integración entre fuentes). Solo lectura.
+  es_autoflujo                                             Boolean?
   /// OTI.UIT 2.8.5: responsable funcional (app/gestor/área) solo con regla clara; poblado por deriva_responsable_funcional.py
   responsable_funcional                                    String?
   responsable_funcional_regla                              String?        @db.VarChar(80)
