@@ -124,6 +124,11 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
       "Tecnológico). Inventario vigente: 148 de las 172 BD de producción. Las candidatas a dar de baja sí se incluyen.";
     full(r++, excl, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(excl, totw), "top");
   }
+  if (id === "ADI-03") {
+    // O-03: el catálogo incluye, además de las BD, fuentes externas (EXT) y no estructuradas (FNE)
+    const comp = "Composición del catálogo: (1) FTE-### — bases de datos relacionales de producción vigentes; (2) EXT-## — fuentes de datos externas que alimentan a la ONP (SUNAT: transferencia NETI y Novedades), documentadas en las especificaciones F-30/F-31 e integradas vía DataStage; (3) FNE-## — fuentes de información no estructurada de producción (servidores de archivos, servidor de digitalización, gestor de contenidos IBM FileNet y almacenamiento de objetos MinIO), identificadas a partir del inventario de infraestructura F-34 (un servidor por fila); se registran para la visión completa del ecosistema, pero no forman parte de la BDI y su tamaño corresponde al disco del servidor.";
+    full(r++, comp, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(comp, totw), "top");
+  }
   const glosa = GLOSA_P1 + (withTraza ? "\n" + GLOSA_P2 : "");
   full(r++, "Metodología de consolidación y relevamiento", labF, STEEL, 16);
   full(r++, glosa, { name: "Calibri", size: 9 }, null, txtH(glosa, totw), "top");
@@ -257,7 +262,8 @@ export function addPortada(wb: ExcelJS.Workbook, ids: string[]) {
   const exclTxt = ids.some((id) => ["ADI-03", "ADI-04", "ADI-07"].includes(id))
     ? "Exclusión: las 24 bases de datos con estado «De baja» (18 DB2 de la plataforma IBM BPM, HangFireJobs y 5 bases SharePoint de la comunidad «Muestra de Firmas») no forman parte del inventario ni de los demás artefactos, al no aportar al análisis de la BDI; su registro lo conserva la OTI (Unidad de Infraestructura y Soporte Tecnológico). Inventario vigente: 148 de las 172 BD de producción. Las candidatas a dar de baja sí se incluyen. · "
     : "";
-  full(5, alcanceTxt + exclTxt + "Procedencia: todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son calculados o derivados de datos recopilados de las fuentes institucionales (F-01…F-34); ninguno es inferido sin sustento (ver matriz de trazabilidad).", { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, (alcanceTxt ? 52 : 30) + (exclTxt ? 40 : 0), "top");
+  const compTxt = ids.includes("ADI-03") ? "Composición del catálogo: (1) FTE-### — bases de datos relacionales de producción vigentes; (2) EXT-## — fuentes de datos externas que alimentan a la ONP (SUNAT: transferencia NETI y Novedades), documentadas en las especificaciones F-30/F-31 e integradas vía DataStage; (3) FNE-## — fuentes de información no estructurada de producción (servidores de archivos, servidor de digitalización, gestor de contenidos IBM FileNet y almacenamiento de objetos MinIO), identificadas a partir del inventario de infraestructura F-34 (un servidor por fila); se registran para la visión completa del ecosistema, pero no forman parte de la BDI y su tamaño corresponde al disco del servidor. · " : "";
+  full(5, alcanceTxt + exclTxt + compTxt + "Procedencia: todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son calculados o derivados de datos recopilados de las fuentes institucionales (F-01…F-34); ninguno es inferido sin sustento (ver matriz de trazabilidad).", { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, (alcanceTxt ? 52 : 30) + (exclTxt ? 40 : 0) + (compTxt ? 52 : 0), "top");
   full(6, "Contenido", { name: "Calibri", size: 11, bold: true, color: { argb: NAVY } }, STEEL, 16);
   let r = 7;
   for (const id of ids) { full(r, `${id}  ·  ${M[id]?.a2.split("· ")[1] || id}`, { name: "Calibri", size: 10 }, (r % 2 ? ZEBRA : null), 16); r++; }
