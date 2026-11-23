@@ -116,11 +116,12 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
       "y los binarios para su instalación, validación y actualización por parte de la ONP.";
     full(r++, intro, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(intro, totw), "top");
   }
-  if (id === "ADI-07") {
-    // OTI.UIT 2.10.1: el universo de ADI-07 excluye las BD que figuran 'De baja' en ADI-03
-    const excl = "Exclusión: en este artefacto no se consignan las bases de datos que figuran con estado «De baja» en el " +
-      "ADI-03 (no operan, por lo que no se dimensiona su volumetría ni su criticidad); su registro y estado se mantienen " +
-      "en el catálogo ADI-03. Las candidatas a dar de baja sí se incluyen.";
+  if (["ADI-03", "ADI-04", "ADI-07"].includes(id)) {
+    // OTI.UIT 2.6.7/2.10.1: las BD 'De baja' no forman parte del inventario ni de ningún artefacto (base_de_datos.en_inventario)
+    const excl = "Exclusión: las 24 bases de datos con estado «De baja» (18 DB2 de la plataforma IBM BPM, HangFireJobs y " +
+      "5 bases SharePoint de la comunidad «Muestra de Firmas») no forman parte del inventario ni de los demás artefactos, " +
+      "al no aportar al análisis de la BDI; su registro lo conserva la OTI (Unidad de Infraestructura y Soporte " +
+      "Tecnológico). Inventario vigente: 148 de las 172 BD de producción. Las candidatas a dar de baja sí se incluyen.";
     full(r++, excl, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(excl, totw), "top");
   }
   const glosa = GLOSA_P1 + (withTraza ? "\n" + GLOSA_P2 : "");
@@ -253,10 +254,10 @@ export function addPortada(wb: ExcelJS.Workbook, ids: string[]) {
   const alcanceTxt = ids.some((id) => ["ADI-03", "ADI-04", "ADI-07"].includes(id))
     ? "Alcance: se consideran únicamente las fuentes de datos en ambiente de Producción, según lo delimitado en el Acta de inicio del servicio (Kick off, AR-001-DE_BDI, 16/09/2026 — F-32): «del total de BD mapeadas, 172 se encuentran en producción y son las que se tomarán en cuenta como parte del presente servicio». · "
     : "";
-  const exclTxt = ids.includes("ADI-07")
-    ? "Exclusión (ADI-07): no se consignan las bases de datos que figuran con estado «De baja» en el ADI-03 (no operan, por lo que no se dimensiona su volumetría ni su criticidad); su registro y estado se mantienen en el catálogo ADI-03. Las candidatas a dar de baja sí se incluyen. · "
+  const exclTxt = ids.some((id) => ["ADI-03", "ADI-04", "ADI-07"].includes(id))
+    ? "Exclusión: las 24 bases de datos con estado «De baja» (18 DB2 de la plataforma IBM BPM, HangFireJobs y 5 bases SharePoint de la comunidad «Muestra de Firmas») no forman parte del inventario ni de los demás artefactos, al no aportar al análisis de la BDI; su registro lo conserva la OTI (Unidad de Infraestructura y Soporte Tecnológico). Inventario vigente: 148 de las 172 BD de producción. Las candidatas a dar de baja sí se incluyen. · "
     : "";
-  full(5, alcanceTxt + exclTxt + "Procedencia: todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son calculados o derivados de datos recopilados de las fuentes institucionales (F-01…F-32); ninguno es inferido sin sustento (ver matriz de trazabilidad).", { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, (alcanceTxt ? 52 : 30) + (exclTxt ? 26 : 0), "top");
+  full(5, alcanceTxt + exclTxt + "Procedencia: todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son calculados o derivados de datos recopilados de las fuentes institucionales (F-01…F-34); ninguno es inferido sin sustento (ver matriz de trazabilidad).", { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, (alcanceTxt ? 52 : 30) + (exclTxt ? 40 : 0), "top");
   full(6, "Contenido", { name: "Calibri", size: 11, bold: true, color: { argb: NAVY } }, STEEL, 16);
   let r = 7;
   for (const id of ids) { full(r, `${id}  ·  ${M[id]?.a2.split("· ")[1] || id}`, { name: "Calibri", size: 10 }, (r % 2 ? ZEBRA : null), 16); r++; }

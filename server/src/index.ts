@@ -97,11 +97,13 @@ function coerce(m: any, col: string, val: any) {
   if (f.type === "Boolean") return val === true || val === "true";
   return val; // String, Json, DateTime
 }
+const GENERATED = new Set(["es_orquestador", "es_autoflujo", "en_inventario"]);
 function writableBody(m: any, body: any, isCreate: boolean) {
   const out: any = {};
   for (const f of m.fields) {
     if (f.kind !== "scalar" && f.kind !== "enum") continue;
     if (AUDIT.has(f.name)) continue;                    // auditoría: la pone el servidor
+    if (GENERATED.has(f.name)) continue;                // columnas GENERATED ALWAYS de PG: no se escriben
     if (!(f.name in body)) continue;
     if (f.isId && f.hasDefaultValue) continue;          // identity: no insertar/editar id
     out[f.name] = coerce(m, f.name, body[f.name]);
@@ -366,7 +368,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
            (case when b.modo_archivado='NOARCHIVELOG' then 'Sin archivado de redo (NOARCHIVELOG). ' else '' end)||
            (case when b.tde_estado is not null and b.tde_estado not ilike 'Cifrado activo%' and lower(coalesce(b.entidades_conceptuales,'')) ~ '(persona|asegurado|empleador|pension|aporte)' then 'Cifrado en reposo no activo (TDE). ' else '' end)||
            (case when exists(select 1 from integraciones i join integracion_dblink dl on dl.id_integracion=i.id_integracion where i.id_bd_destino=b.id_bd and dl.es_publico) then 'Expuesta vía DB links públicos. ' else '' end)||
-           (case when upper(coalesce(b.estado_bd,'')) like '%BAJA%' then 'En baja/candidata. ' else '' end)
+           (case when upper(coalesce(b.estado_bd,'')) like '%BAJA%' then 'Candidata a dar de baja. ' else '' end)
          ),''),'') as "Restricciones / limitaciones",
         coalesce(nullif(trim(b.estado_bd),''),
           (select case when bool_or(upper(a.estado_app) like '%OPERATIV%') then 'Operativo'
@@ -399,6 +401,9 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
       left join servidor s on s.id_servidor=b.id_servidor
+      -- Acuerdo ONP (reunión de absolución con OTI.UIT – J. Aguirre, 18-nov-2026): las BD 'De baja' salen del inventario y de todos los artefactos
+      -- (no aportan al análisis de la BDI; la OTI.UIT conserva su registro). Columna generada base_de_datos.en_inventario.
+      where b.en_inventario
       order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd)
       union all
       (select
@@ -426,8 +431,35 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         'Sí' as "¿Dentro del modelo conceptual?",
         nullif(concat_ws('. ', nullif(fe.mecanismo,''), nullif('Periodicidad: '||fe.periodicidad,'Periodicidad: '), nullif('Formato: '||fe.formato,'Formato: '), nullif('Vigencia: '||fe.vigencia,'Vigencia: ')),'') as "Observaciones de uso actual"
       from fuentes_externas fe)
+      union all
+      -- O-03 (Informe 80): fuentes de información NO estructurada (servidores de archivos, digitalización, FileNet, MinIO),
+      -- un servidor por fila, identificadas desde F-34 aunque no forman parte de la BDI. Tamaño = disco del servidor según F-34.
+      (select
+        fn.codigo as "ID",
+        fn.nombre as "Fuente / BD",
+        coalesce(fn.descripcion, 'Registro del inventario de F-34 sin función informada') as "Descripción general",
+        '' as "Motor", '' as "Versión", '' as "Edición", '' as "Packs licenciables en uso",
+        coalesce(fn.ambiente,'') as "Ambiente", coalesce(fn.host,'') as "Servidor", coalesce(fn.datacenter,'') as "Datacenter",
+        coalesce(fn.sistema_operativo,'') as "Sistema operativo",
+        fn.tamano_gb as "Tamaño (GB)", null::int as "N° esquemas", null::int as "N° tablas", null::text as "Crecimiento (GB/mes)",
+        fn.tipo_repositorio as "Tipo de fuente",
+        coalesce(fn.tipo_informacion,'') as "Tipo de información gestionada",
+        '' as "Tipo(s) de proceso", '' as "Dominio(s) funcional(es)", '' as "Proceso(s) de negocio",
+        '' as "Área usuaria responsable",
+        coalesce(fn.area_tecnica,'') as "Área técnica responsable",
+        coalesce(fn.gestor,'') as "Gestor",
+        '' as "Responsable funcional",
+        '' as "Aplicaciones consumidoras",
+        null::int as "N° integ.",
+        '' as "Integra con (BD / fuentes)",
+        'Baja' as "Relevancia p/ trazabilidad",
+        coalesce(fn.restricciones,'') as "Restricciones / limitaciones",
+        coalesce(fn.estado,'') as "Estado",
+        case when fn.en_bdi then 'Sí' else 'No — fuente no estructurada (fuera de la BDI)' end as "¿Dentro del modelo conceptual?",
+        coalesce(fn.observaciones,'') as "Observaciones de uso actual"
+      from fuente_no_estructurada fn)
       ) q
-      order by case when "ID" like 'EXT-%' then 1 else 0 end, "ID"
+      order by case when "ID" like 'EXT-%' then 1 when "ID" like 'FNE-%' then 2 else 0 end, "ID"
     `,
   },
   "ADI-07": {
@@ -529,15 +561,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join motor_bd m on m.id_motor_bd=b.id_motor_bd
       left join ambiente a on a.id_ambiente=b.id_ambiente
       left join servidor s on s.id_servidor=b.id_servidor
-      -- OTI.UIT 2.10.1: ADI-07 NO consigna las BD que figuran 'De baja' en ADI-03 (misma regla de Estado que ADI-03:
-      -- estado_bd; si falta, estado de sus apps; si no, Operativo por volumetría en vivo). Candidatas a baja se mantienen.
-      where coalesce(nullif(trim(b.estado_bd),''),
-              (select case when bool_or(upper(ax.estado_app) like '%OPERATIV%') then 'Operativo'
-                           when bool_or(upper(ax.estado_app) like '%ANALISIS%') then 'En análisis'
-                           when bool_or(upper(ax.estado_app) like '%CANDIDATO%') then 'Candidato a dar de baja'
-                           when count(*)>0 then 'De baja' else null end
-               from aplicacion_basedatos abx join aplicacion ax on ax.id=abx.id_aplicacion where abx.id_bd=b.id_bd),
-              case when b.fec_volumetria is not null then 'Operativo' end, '') <> 'De baja'
+      -- OTI.UIT 2.10.1 + acuerdo ONP (reunión OTI.UIT 18-nov-2026): las BD 'De baja' no forman parte del inventario ni de ningún artefacto.
+      where b.en_inventario
       order by (case when b.en_modelo_conceptual and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion where ab.id_bd=b.id_bd and a2.en_modelo_conceptual) then 0 else 1 end), b.nombre_bd
     `,
   },

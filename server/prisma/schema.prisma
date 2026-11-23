@@ -91,6 +91,7 @@ model base_de_datos {
   area_usuario_resp_onp                                    String?
   en_modelo_conceptual                                     Boolean                @default(true)
   clase_contenido                                          String?
+  en_inventario                                            Boolean? // generada: estado_bd <> 'De baja' (acuerdo ONP, reunión OTI.UIT 18-nov-2026)
   tamano_gb                                                Decimal?               @db.Decimal(14, 2)
   nro_esquemas                                             Int?
   nro_tablas                                               Int?
