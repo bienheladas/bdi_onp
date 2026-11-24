@@ -124,6 +124,14 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
       "Tecnológico). Inventario vigente: 148 de las 172 BD de producción. Las candidatas a dar de baja sí se incluyen.";
     full(r++, excl, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(excl, totw), "top");
   }
+  if (id === "ADI-04") {
+    // Brecha de cobertura: hay dominios del Mapa de Procesos sin fuente de datos catalogada (no generan fila en esta matriz)
+    const cob = "Cobertura de dominios: esta matriz Fuente × Dominio solo incluye los dominios con al menos una fuente de datos " +
+      "catalogada. El dominio «Relacionamiento Institucional» (proceso de soporte S6 «Gestión del relacionamiento») figura en el " +
+      "Mapa de Procesos ONP 2026 pero ninguna aplicación del relevamiento (F-22) lo soporta; por ello no genera fila aquí y se " +
+      "reporta como brecha de cobertura del AS-IS en el ADI-09 (columna Aplicaciones = «Sin aplicación catalogada»).";
+    full(r++, cob, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(cob, totw), "top");
+  }
   if (id === "ADI-03") {
     // O-03: el catálogo incluye, además de las BD, fuentes externas (EXT) y no estructuradas (FNE)
     const comp = "Composición del catálogo: (1) FTE-### — bases de datos relacionales de producción vigentes; (2) EXT-## — fuentes de datos externas que alimentan a la ONP (SUNAT: transferencia NETI y Novedades), documentadas en las especificaciones F-30/F-31 e integradas vía DataStage; (3) FNE-## — fuentes de información no estructurada de producción (servidores de archivos, servidor de digitalización, gestor de contenidos IBM FileNet y almacenamiento de objetos MinIO), identificadas a partir del inventario de infraestructura F-34 (un servidor por fila); se registran para la visión completa del ecosistema, pero no forman parte de la BDI y su tamaño corresponde al disco del servidor.";
