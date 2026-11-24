@@ -10,7 +10,7 @@ const SEV: Record<string, string> = {
   "Media": "FFBF8F00", "Medio": "FFBF8F00", "Baja": "FF548235",
 };
 const A1 = "Consorcio LCP — Líderes en Competencia Personal EIRL & Ascendant Group SAC";
-const VERSION_VAL = "v1.0  ·  2026-10-29  ·  Consolidado AS-IS — validado por LCP, pendiente de conformidad ONP";
+const VERSION_VAL = "v2.0  ·  2026-11-24  ·  Consolidado AS-IS subsanado (absolución de observaciones E2) — validado por LCP, pendiente de conformidad ONP";
 const EST_TAG: Record<string, string> = {
   derivado: "   ·   (derivado por cálculo)", manual: "   ·   (análisis experto LCP)",
 };
@@ -131,6 +131,26 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
       "Mapa de Procesos ONP 2026 pero ninguna aplicación del relevamiento (F-22) lo soporta; por ello no genera fila aquí y se " +
       "reporta como brecha de cobertura del AS-IS en el ADI-09 (columna Aplicaciones = «Sin aplicación catalogada»).";
     full(r++, cob, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(cob, totw), "top");
+  }
+  if (id === "ADI-05") {
+    // OBS-15 / OTI-07: el total mostrado (528) difiere del inventario bruto porque excluye autoflujos
+    const cnt = "Conteo de integraciones: este mapa presenta las 528 integraciones entre fuentes del AS-IS " +
+      "(362 ETL DataStage + 157 DB Link + 6 Servicio web PIDE + 3 Replicación). Regla de conteo (OTI-07): sobre las " +
+      "665 relaciones relevadas (excluidas las secuencias orquestadoras) se descuentan los 137 autoflujos intra-BD " +
+      "—transformaciones con origen = destino en la misma base, que no son integración entre fuentes distintas—; por " +
+      "eso el total declarado (528) difiere del inventario bruto de jobs y enlaces.";
+    full(r++, cnt, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(cnt, totw), "top");
+  }
+  if (id === "ADI-08") {
+    // OBS-07 / O-09: constancia formal de las dimensiones del TDR VI.1 act.8 sin evidencia relevada
+    const dims = "Cobertura de dimensiones (TDR VI.1, act. 8): el ADI-08 registra fichas de Documentación (BR-01), " +
+      "Obsolescencia de motores (BR-02), Licenciamiento —Restricción— (BR-03), Seguridad de integraciones / DB Links " +
+      "(BR-04), Fragmentación (BR-05), Dispersión (BR-06) y Protección de datos personales / TDE (BR-07). Sobre el " +
+      "relevamiento del AS-IS no se halló evidencia que sustente brechas, riesgos o restricciones específicas de " +
+      "interoperabilidad, trazabilidad ni procesos manuales, por lo que no se registran como fichas; su ausencia se " +
+      "declara formalmente como parte del alcance de este diagnóstico. La calidad de datos se aborda en el 4.º " +
+      "entregable (Documento Equivalente), que la dimensionará con la línea base de este diagnóstico.";
+    full(r++, dims, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(dims, totw), "top");
   }
   if (id === "ADI-03") {
     // O-03: el catálogo incluye, además de las BD, fuentes externas (EXT) y no estructuradas (FNE)

@@ -1050,7 +1050,7 @@ app.get("/api/ecosistema", async (_req, res) => {
       procesos: await num("select count(*) n from proceso_negocio"),
       entidades: await num("select count(*) n from entidad_conceptual"),
       relaciones: await num("select count(*) n from relacion_conceptual"),
-      integraciones: await num("select count(*) n from integraciones where not es_orquestador"),
+      integraciones: await num("select count(*) n from integraciones where not es_orquestador and not es_autoflujo"),
     };
 
     // 1) Sistemas (apps en alcance) con sus bases/dominios/procesos/entidades (en alcance)
