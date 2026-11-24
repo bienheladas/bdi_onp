@@ -551,8 +551,12 @@ function Artefactos() {
           <b>Exclusión:</b> las 24 bases de datos con estado «De baja» (18 DB2 de la plataforma IBM BPM, HangFireJobs y 5 bases SharePoint de la comunidad «Muestra de Firmas») <b>no forman parte del inventario ni de los demás artefactos</b>, al no aportar al análisis de la BDI; su registro lo conserva la OTI (Unidad de Infraestructura y Soporte Tecnológico). Inventario vigente: 148 de las 172 BD de producción. Las candidatas a dar de baja sí se incluyen. · </>}
         {viewId === "ADI-03" && <>
           <b>Composición del catálogo:</b> (1) <b>FTE-###</b> — bases de datos relacionales de producción vigentes; (2) <b>EXT-##</b> — fuentes de datos externas que alimentan a la ONP (SUNAT: transferencia NETI y Novedades), documentadas en las especificaciones F-30/F-31 e integradas vía DataStage; (3) <b>FNE-##</b> — fuentes de información no estructurada de producción (servidores de archivos, servidor de digitalización, gestor de contenidos IBM FileNet y almacenamiento de objetos MinIO), identificadas a partir del inventario de infraestructura F-34 (un servidor por fila); se registran para la visión completa del ecosistema, pero <b>no forman parte de la BDI</b> y su tamaño corresponde al disco del servidor. · </>}
+        {viewId === "ADI-08" && <>
+          <b>Cómo leer esta matriz:</b> cada ficha (<b>BR-NN</b>) clasifica un hallazgo como <b>Brecha</b> (carencia o deficiencia estructural respecto al estado integrado objetivo), <b>Riesgo</b> (condición que puede derivar en un evento dañino sobre la seguridad, integridad o disponibilidad del dato) o <b>Restricción</b> (limitación contractual, de plataforma o tecnológica que acota la implementación). · </>}
+        {viewId === "ADI-08" && <>
+          <b>Cómo se calcula la severidad:</b> resulta de una matriz de dos ejes fijados con señales observables del AS-IS —<b>Impacto</b> (Alto/Medio/Bajo = gravedad del efecto sobre el dato) × <b>Exposición</b> (Alta/Media/Baja = alcance por N° de BD/fuentes afectadas e inminencia). Combinación → severidad: <b>Alto×Alta = Crítica</b>; Alto×Media y Medio×Alta = <b>Alta</b>; Alto×Baja, Medio×Media y Bajo×Alta = <b>Media</b>; Medio×Baja, Bajo×Media y Bajo×Baja = <b>Baja</b>. La columna «Criterio de severidad» de cada ficha muestra los dos ejes asignados y su justificación. · </>}
         {viewId !== "ADI-01" && <>
-          <b>Procedencia:</b> todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son <b>calculados o derivados</b> de datos recopilados de las <b>fuentes institucionales</b> (F-01…F-34); ninguno es inferido sin sustento (ver matriz de trazabilidad).
+          <b>Procedencia:</b> todos los valores de los artefactos ADI provienen del repositorio del Documento Equivalente (modelo PostgreSQL de LCP) y son <b>calculados o derivados</b> de datos recopilados de las <b>fuentes institucionales</b> (F-01…F-34); ninguno es inferido sin sustento (ver matriz de trazabilidad). El detalle de cada campo está en el tooltip <b>ⓘ</b> de su etiqueta.
         </>}
       </p>
       {!data ? <p className="muted">Cargando…</p> : viewId === "ADI-08" ? (() => {
@@ -567,13 +571,13 @@ function Artefactos() {
               <div className="riskcard" key={i}>
                 <div className="rc-head">
                   {shortIdx.flatMap((ci) => [
-                    <div className="rc-k" key={ci + "k"} title={desc[viewId]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>,
+                    <div className="rc-k" key={ci + "k"} title={desc[viewId]?.[data.columns[ci]] || ""}>{data.columns[ci]}{desc[viewId]?.[data.columns[ci]] ? <span className="hdrinfo"> ⓘ</span> : null}</div>,
                     <div className="rc-v" key={ci + "v"}>{r[ci]}</div>,
                   ])}
                 </div>
                 {longIdx.map((ci) => (
                   <div className="rc-row" key={ci}>
-                    <div className="rc-k" title={desc[viewId]?.[data.columns[ci]] || ""}>{data.columns[ci]}</div>
+                    <div className="rc-k" title={desc[viewId]?.[data.columns[ci]] || ""}>{data.columns[ci]}{desc[viewId]?.[data.columns[ci]] ? <span className="hdrinfo"> ⓘ</span> : null}</div>
                     <div className="rc-v">{r[ci]}</div>
                   </div>
                 ))}

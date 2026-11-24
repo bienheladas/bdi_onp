@@ -294,7 +294,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       "Tipo de fuente", "Tipo de información gestionada",
       "Tipo(s) de proceso", "Dominio(s) funcional(es)", "Proceso(s) de negocio", "Área usuaria responsable", "Área técnica responsable",
       "Gestor", "Responsable funcional", "Aplicaciones consumidoras", "N° integ.", "Integra con (BD / fuentes)",
-      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "¿Dentro del modelo conceptual?", "Observaciones de uso actual"],
+      "Relevancia p/ trazabilidad", "Restricciones / limitaciones", "Estado", "¿Dentro del modelo conceptual?", "Justificación de la exclusión", "Observaciones de uso actual"],
     sql: `
       select * from (
       (select
@@ -377,20 +377,27 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                        when count(*)>0 then 'De baja' else null end
            from aplicacion_basedatos ab join aplicacion a on a.id=ab.id_aplicacion where ab.id_bd=b.id_bd),
           case when b.fec_volumetria is not null then 'Operativo' end, '') as "Estado",
+        (case when b.en_modelo_conceptual
+                and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion
+                           where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)
+              then 'Sí' else 'No' end) as "¿Dentro del modelo conceptual?",
         (case
            when b.en_modelo_conceptual
                 and exists(select 1 from aplicacion_basedatos ab join aplicacion a2 on a2.id=ab.id_aplicacion
                            where ab.id_bd=b.id_bd and a2.en_modelo_conceptual)
-             then 'Sí'
+             then ''
            when coalesce(b.clase_contenido,'') in ('Metadata de enlatado','Infraestructura','Auditoría','Prueba de migración',
                 'Repositorio documental (SharePoint)','Repositorio de motor de producto (IBM BPM)',
                 'Repositorio de configuración/servicio de producto (SharePoint)','Repositorio de herramienta de soporte TI',
                 'Repositorio analítico / reportería')
-             then 'No — '||b.clase_contenido
+             then b.clase_contenido
            when not exists(select 1 from aplicacion_basedatos ab where ab.id_bd=b.id_bd)
-             then 'No — sin aplicación vigente'
-           else 'No — aplicación de baja / fuera del modelo conceptual'
-         end) as "¿Dentro del modelo conceptual?",
+             then 'Sin aplicación vigente'
+           when exists(select 1 from aplicacion_basedatos ab join aplicacion a3 on a3.id=ab.id_aplicacion
+                       where ab.id_bd=b.id_bd and upper(coalesce(a3.estado_app,'')) not like '%BAJA%')
+             then 'Fuera del alcance del modelo conceptual'
+           else 'Aplicación de baja / fuera del modelo conceptual'
+         end) as "Justificación de la exclusión",
         nullif(trim(
           coalesce(nullif(trim(b.obs_uso_actual),''), nullif(trim(b.observaciones),''),'')
           || case when upper(coalesce(b.estado_bd,'')) like '%CANDIDATO%' and b.en_modelo_conceptual
@@ -429,6 +436,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         nullif('Confidencialidad: '||coalesce(fe.nivel_confidencialidad,''),'Confidencialidad: ') as "Restricciones / limitaciones",
         'Operativo' as "Estado",
         'Sí' as "¿Dentro del modelo conceptual?",
+        '' as "Justificación de la exclusión",
         nullif(concat_ws('. ', nullif(fe.mecanismo,''), nullif('Periodicidad: '||fe.periodicidad,'Periodicidad: '), nullif('Formato: '||fe.formato,'Formato: '), nullif('Vigencia: '||fe.vigencia,'Vigencia: ')),'') as "Observaciones de uso actual"
       from fuentes_externas fe)
       union all
@@ -455,7 +463,8 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         'Baja' as "Relevancia p/ trazabilidad",
         coalesce(fn.restricciones,'') as "Restricciones / limitaciones",
         coalesce(fn.estado,'') as "Estado",
-        case when fn.en_bdi then 'Sí' else 'No — fuente no estructurada (fuera de la BDI)' end as "¿Dentro del modelo conceptual?",
+        case when fn.en_bdi then 'Sí' else 'No' end as "¿Dentro del modelo conceptual?",
+        case when fn.en_bdi then '' else 'Fuente no estructurada (fuera de la BDI)' end as "Justificación de la exclusión",
         coalesce(fn.observaciones,'') as "Observaciones de uso actual"
       from fuente_no_estructurada fn)
       ) q
