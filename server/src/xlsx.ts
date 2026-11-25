@@ -127,7 +127,7 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
   if (id === "ADI-04") {
     // Brecha de cobertura: hay dominios del Mapa de Procesos sin fuente de datos catalogada (no generan fila en esta matriz)
     const cob = "Cobertura de dominios: esta matriz Fuente × Dominio solo incluye los dominios con al menos una fuente de datos " +
-      "catalogada. El dominio «Relacionamiento Institucional» (proceso de soporte S6 «Gestión del relacionamiento») figura en el " +
+      "catalogada. El dominio «Atención y Relacionamiento» (proceso de soporte S6 «Gestión del relacionamiento») figura en el " +
       "Mapa de Procesos ONP 2026 pero ninguna aplicación del relevamiento (F-22) lo soporta; por ello no genera fila aquí y se " +
       "reporta como brecha de cobertura del AS-IS en el ADI-09 (columna Aplicaciones = «Sin aplicación catalogada»).";
     full(r++, cob, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(cob, totw), "top");
