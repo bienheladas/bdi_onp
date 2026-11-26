@@ -23,7 +23,7 @@ const GLOSA_P1 =
   "directamente por LCP, que generó nuevas fuentes de evidencia: la extracción de volumetría, estructura física y " +
   "metadata de las bases de datos mediante cuentas de solo lectura, el análisis de las integraciones (DataStage y " +
   "enlaces de base de datos) y las actas de las entrevistas con gestores y áreas usuarias. Cada fuente quedó " +
-  "registrada y codificada (F-01 … F-29) en el artefacto ADI-01.";
+  "registrada y codificada (F-01 … F-34) en el artefacto ADI-01.";
 const GLOSA_P2 =
   "Una vez integrada esa información, cada columna de este artefacto tiene un origen conocido y declarado. Algunas " +
   "columnas se toman directamente de una o varias fuentes; otras se obtienen mediante un cálculo o una derivación a " +
