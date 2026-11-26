@@ -136,7 +136,7 @@ function topSection(ws: ExcelJS.Worksheet, lastC: number, id: string, traza: Tra
     // OBS-15 / Humberto 25-nov: en artefactos solo integraciones de PRODUCCIÓN (mallas del Excel), sin autoflujos
     const cnt = "Conteo de integraciones: este mapa presenta las 479 integraciones de producción entre fuentes del AS-IS " +
       "(313 ETL DataStage de mallas declaradas en el Excel de producción de la ONP + 157 DB Link + 6 Servicio web PIDE + 3 Replicación). " +
-      "Se representan únicamente las integraciones indicadas como producción; se excluyen las secuencias orquestadoras, los autoflujos " +
+      "Se representan únicamente las integraciones indicadas como producción; se excluyen los autoflujos " +
       "intra-BD (origen = destino en la misma base) y las ETL cuya malla no fue declarada de producción (quedan relevadas en el modelo, " +
       "fuera del artefacto).";
     full(r++, cnt, { name: "Calibri", size: 9, italic: true, color: { argb: NAVY } }, null, txtH(cnt, totw), "top");
