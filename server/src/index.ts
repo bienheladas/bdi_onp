@@ -265,6 +265,10 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
                case when i.id_fuente_externa_origen is not null
                       or upper(coalesce(i.origen_externo,'')||' '||coalesce(i.destino_externo,'')) ~ '(SUNAT|RENIEC|SBS|INFORMIX|ESSALUD)'
                     then 'Medio' else 'Bajo' end
+             -- Mismo criterio (revisión 2026-11-27): PIDE = datos de entidades externas (RENIEC, PNP, PJ, SUNARP, Migraciones,
+             -- SUNEDU), fuera del control de la ONP = Medio; Replicación NSP->EMI = interna entre instancias de producción = Bajo.
+             when i.mecanismo='Servicio web (PIDE)' then 'Medio'
+             when i.mecanismo='Replicación' then 'Bajo'
              else coalesce(dl.nivel_riesgo,'') end as "Riesgos generales",
         case when i.mecanismo='DB Link' then
                'Enlace: '||coalesce(i.nombre_enlace,'')||'; Owner: '||coalesce(dl.owner,'')||'; Visibilidad: '||(case when dl.es_publico then 'Público' else 'Privado' end)||'; Usuario remoto: '||coalesce(dl.usuario_remoto,'')
@@ -418,13 +422,15 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         fe.nombre as "Fuente / BD",
         fe.proposito as "Descripción general",
         '' as "Motor", '' as "Versión", '' as "Edición", '' as "Packs licenciables en uso",
-        '' as "Ambiente", '' as "Servidor", '' as "Datacenter", '' as "Sistema operativo",
+        coalesce(fe.ambiente,'') as "Ambiente", '' as "Servidor", '' as "Datacenter", '' as "Sistema operativo",
         null::numeric as "Tamaño (GB)", null::int as "N° esquemas", null::int as "N° tablas", null::text as "Crecimiento (GB/mes)",
         'Fuente externa' as "Tipo de fuente",
-        fe.entidades_negocio as "Tipo de información gestionada",
-        '' as "Tipo(s) de proceso",
-        fe.dominios_siip as "Dominio(s) funcional(es)",
-        '' as "Proceso(s) de negocio",
+        -- Revisión 2026-11-27: entidades conceptuales (antes se mostraban como «Dominio funcional», mezclando taxonomías);
+        -- tipo de proceso, dominio y proceso salen de fuentes_externas.id_proceso, misma jerarquía que las BD.
+        coalesce(fe.entidades_conceptuales,'') as "Tipo de información gestionada",
+        coalesce(tpx.desc_tipo_proceso,'') as "Tipo(s) de proceso",
+        coalesce(dfx.desc_dominio,'') as "Dominio(s) funcional(es)",
+        coalesce(pnx.desc_proceso,'') as "Proceso(s) de negocio",
         '' as "Área usuaria responsable",
         'OTI (DataStage)' as "Área técnica responsable",
         fe.proveedor as "Gestor",
@@ -437,8 +443,11 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         'Operativo' as "Estado",
         'Sí' as "¿Dentro del modelo conceptual?",
         '' as "Justificación de la exclusión",
-        nullif(concat_ws('. ', nullif(fe.mecanismo,''), nullif('Periodicidad: '||fe.periodicidad,'Periodicidad: '), nullif('Formato: '||fe.formato,'Formato: '), nullif('Vigencia: '||fe.vigencia,'Vigencia: ')),'') as "Observaciones de uso actual"
-      from fuentes_externas fe)
+        coalesce(nullif(trim(fe.obs_uso_actual),''), nullif(concat_ws('. ', nullif(fe.mecanismo,''), nullif('Periodicidad: '||fe.periodicidad,'Periodicidad: '), nullif('Formato: '||fe.formato,'Formato: '), nullif('Vigencia: '||fe.vigencia,'Vigencia: ')),'')) as "Observaciones de uso actual"
+      from fuentes_externas fe
+      left join proceso_negocio pnx on pnx.id_proceso=fe.id_proceso
+      left join dominio_funcional dfx on dfx.id_dominio=pnx.id_dominio
+      left join tipo_proceso tpx on tpx.id_tipo_proceso=dfx.id_tipo_proceso)
       union all
       -- O-03 (Informe 80): fuentes de información NO estructurada (servidores de archivos, digitalización, FileNet, MinIO),
       -- un servidor por fila, identificadas desde F-34 aunque no forman parte de la BDI. Tamaño = disco del servidor según F-34.
