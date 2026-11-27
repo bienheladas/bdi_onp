@@ -436,7 +436,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
         fe.proveedor as "Gestor",
         '' as "Responsable funcional",
         '' as "Aplicaciones consumidoras",
-        (select count(*) from integraciones ix where ix.id_fuente_externa_origen=fe.id_fuente_ext and not ix.es_orquestador)::int as "N° integ.",
+        (select count(*) from integraciones ix where ix.id_fuente_externa_origen=fe.id_fuente_ext and ix.en_prod)::int as "N° integ.",
         fe.bd_destino_onp as "Integra con (BD / fuentes)",
         'Alta' as "Relevancia p/ trazabilidad",
         nullif('Confidencialidad: '||coalesce(fe.nivel_confidencialidad,''),'Confidencialidad: ') as "Restricciones / limitaciones",
@@ -450,7 +450,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join tipo_proceso tpx on tpx.id_tipo_proceso=dfx.id_tipo_proceso)
       union all
       -- O-03 (Informe 80): fuentes de información NO estructurada (servidores de archivos, digitalización, FileNet, MinIO),
-      -- un servidor por fila, identificadas desde F-34 aunque no forman parte de la BDI. Tamaño = disco del servidor según F-34.
+      -- un registro del inventario F-34 por fila (servidor virtual o LPAR; 29 registros = 17 servidores/equipos), identificadas desde F-34 aunque no forman parte de la BDI. Tamaño = disco del servidor según F-34.
       (select
         fn.codigo as "ID",
         fn.nombre as "Fuente / BD",
