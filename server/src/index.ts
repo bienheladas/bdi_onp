@@ -450,7 +450,7 @@ const ARTE: Record<string, { titulo: string; columns: string[]; sql: string }> =
       left join tipo_proceso tpx on tpx.id_tipo_proceso=dfx.id_tipo_proceso)
       union all
       -- O-03 (Informe 80): fuentes de información NO estructurada (servidores de archivos, digitalización, FileNet, MinIO),
-      -- un registro del inventario F-34 por fila (servidor virtual o LPAR; 29 registros = 17 servidores/equipos), identificadas desde F-34 aunque no forman parte de la BDI. Tamaño = disco del servidor según F-34.
+      -- un servidor por fila (29 = 21 servidores virtuales + 8 LPAR FileNet; 8 nombres repetidos en COT4/COT5 son servidores distintos), identificadas desde F-34 aunque no forman parte de la BDI. Tamaño = disco del servidor según F-34.
       (select
         fn.codigo as "ID",
         fn.nombre as "Fuente / BD",
